@@ -41,19 +41,29 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", session.user.id)
-      .single();
+    const loadRecord = async () => {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
 
-    if (error) {
-      console.error(error);
-      setUser(null);
-    } else {
-      setUser(data as UserRecord);
-    }
-    setLoading(false);
+      if (error || !data) {
+        // 行がない場合は作成して再取得
+        await supabase.from("users").upsert({ id: session.user.id }).select();
+        const { data: retryData } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+        setUser((retryData as UserRecord | null) ?? null);
+      } else {
+        setUser(data as UserRecord);
+      }
+      setLoading(false);
+    };
+
+    await loadRecord();
   };
 
   useEffect(() => {
