@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomUUID } from "crypto";
 import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const bucket = process.env.SUPABASE_SCREENSHOT_BUCKET;
 
@@ -28,13 +27,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ファイルを選択してください" }, { status: 400 });
   }
 
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
   const ext = file.name.includes(".") ? file.name.split(".").pop() : undefined;
-  const filename = `${randomUUID()}${ext ? `.${ext}` : ""}`;
+  const filename = `${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
   const path = `${auth.userId}/${filename}`;
 
-  const { error } = await adminClient.storage.from(bucket).upload(path, buffer, {
+  const { error } = await adminClient.storage.from(bucket).upload(path, file, {
     cacheControl: "3600",
     upsert: false,
     contentType: file.type || undefined,
