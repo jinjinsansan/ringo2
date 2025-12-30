@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -15,18 +16,17 @@ export default function SignupPage() {
     setStatus("loading");
     setMessage("");
 
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
 
-    const data = await res.json();
-
-    if (!res.ok) {
+    if (error) {
       setStatus("error");
-      setMessage(data.error ?? "登録に失敗しました");
+      setMessage(error.message ?? "登録に失敗しました");
       return;
+    }
+
+    // users 行を作成（RLSで insert 許可が必要）
+    if (data.user) {
+      await supabase.from("users").upsert({ id: data.user.id }).select();
     }
 
     setStatus("success");

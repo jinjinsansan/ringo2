@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -15,17 +16,11 @@ export default function LoginPage() {
     setStatus("loading");
     setMessage("");
 
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    const data = await res.json();
-
-    if (!res.ok) {
+    if (error) {
       setStatus("error");
-      setMessage(data.error ?? "ログインに失敗しました");
+      setMessage(error.message ?? "ログインに失敗しました");
       return;
     }
 
