@@ -113,24 +113,37 @@ export default function PurchaseSubmitPage() {
 
     const userId = session.user.id;
 
-    const uploadForm = new FormData();
-    uploadForm.append("file", file);
-    const uploadRes = await fetch("/api/uploads/screenshot", {
+    const prepareRes = await fetch("/api/uploads/screenshot", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
       },
-      body: uploadForm,
+      body: JSON.stringify({ fileName: file.name, contentType: file.type || "application/octet-stream" }),
     });
 
-    if (!uploadRes.ok) {
-      const data = await uploadRes.json().catch(() => ({ error: "アップロードに失敗しました" }));
+    if (!prepareRes.ok) {
+      const data = await prepareRes.json().catch(() => ({ error: "アップロードに失敗しました" }));
       setStatus("error");
       setMessage(data.error || "画像のアップロードに失敗しました");
       return;
     }
 
-    const { path: storagePath } = await uploadRes.json();
+    const { path: storagePath, uploadUrl, contentType: uploadContentType } = await prepareRes.json();
+
+    const directUpload = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": uploadContentType,
+      },
+      body: file,
+    });
+
+    if (!directUpload.ok) {
+      setStatus("error");
+      setMessage("画像のアップロードに失敗しました");
+      return;
+    }
 
     // purchases へ挿入（status=submitted）
     const { data: insertedPurchase, error: insertError } = await supabase

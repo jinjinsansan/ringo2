@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 const bucket = process.env.SUPABASE_SCREENSHOT_BUCKET;
 
@@ -20,26 +20,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Service role key is not configured" }, { status: 500 });
   }
 
-  const formData = await req.formData();
-  const file = formData.get("file");
-
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "ファイルを選択してください" }, { status: 400 });
+  const body = await req.json().catch(() => null);
+  if (!body) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const ext = file.name.includes(".") ? file.name.split(".").pop() : undefined;
+  const { fileName, contentType } = body;
+
+  if (!fileName) {
+    return NextResponse.json({ error: "ファイル名が必要です" }, { status: 400 });
+  }
+
+  const ext = fileName.includes(".") ? fileName.split(".").pop() : undefined;
   const filename = `${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
   const path = `${auth.userId}/${filename}`;
 
-  const { error } = await adminClient.storage.from(bucket).upload(path, file, {
-    cacheControl: "3600",
-    upsert: false,
-    contentType: file.type || undefined,
-  });
+  const { data, error } = await adminClient.storage
+    .from(bucket)
+    .createSignedUploadUrl(path, 60, {
+      contentType: contentType ?? "application/octet-stream",
+    });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !data) {
+    return NextResponse.json({ error: error?.message ?? "署名付きURLの生成に失敗しました" }, { status: 500 });
   }
 
-  return NextResponse.json({ path });
+  return NextResponse.json({ path, uploadUrl: data.signedUrl, contentType: contentType ?? "application/octet-stream" });
 }
