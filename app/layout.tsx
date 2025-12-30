@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans_JP, Shippori_Mincho } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/context/UserContext";
+import Header from "@/components/Header";
 
 const notoSans = Noto_Sans_JP({
   variable: "--font-body",
@@ -32,7 +33,12 @@ export default function RootLayout({
       <body
         className={`${notoSans.variable} ${shipporiMincho.variable} antialiased bg-[#F5F5F5] text-[#5C4033]`}
       >
-        <UserProvider>{children}</UserProvider>
+        <UserProvider>
+          <Header />
+          <div className="pt-[72px]"> {/* Add padding top to account for fixed header height */}
+            {children}
+          </div>
+        </UserProvider>
       </body>
     </html>
   );
