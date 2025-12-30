@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Noto_Sans_JP, Shippori_Mincho } from "next/font/google";
 import "./globals.css";
+import { UserProvider } from "@/context/UserContext";
 
 const notoSans = Noto_Sans_JP({
   variable: "--font-body",
@@ -31,7 +32,7 @@ export default function RootLayout({
       <body
         className={`${notoSans.variable} ${shipporiMincho.variable} antialiased bg-[#F5F5F5] text-[#5C4033]`}
       >
-        {children}
+        <UserProvider>{children}</UserProvider>
       </body>
     </html>
   );
