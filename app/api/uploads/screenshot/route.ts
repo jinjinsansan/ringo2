@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await adminClient.storage
     .from(bucket)
-    .createSignedUploadUrl(path, 60, {
+    .createSignedUploadUrl(path, {
+      expiresIn: 60,
       contentType: contentType ?? "application/octet-stream",
     });
 
