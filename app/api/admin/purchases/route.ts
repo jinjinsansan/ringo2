@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const adminSecret = process.env.ADMIN_SECRET;
+const screenshotBucket = process.env.SUPABASE_SCREENSHOT_BUCKET;
 
 if (!supabaseUrl) {
   throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set");
@@ -44,7 +45,21 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ purchases: data });
+  const purchasesWithUrls = await Promise.all(
+    (data ?? []).map(async (purchase) => {
+      if (screenshotBucket && purchase.screenshot_url && !purchase.screenshot_url.startsWith("http")) {
+        const { data: signed, error: signedError } = await adminClient.storage
+          .from(screenshotBucket)
+          .createSignedUrl(purchase.screenshot_url, 60 * 60 * 24);
+        if (!signedError && signed?.signedUrl) {
+          return { ...purchase, screenshot_url: signed.signedUrl };
+        }
+      }
+      return purchase;
+    })
+  );
+
+  return NextResponse.json({ purchases: purchasesWithUrls });
 }
 
 export async function POST(req: Request) {

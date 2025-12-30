@@ -26,13 +26,21 @@ type Assignment = {
 
 export default function PurchaseSubmitPage() {
   const { refresh } = useUser();
-  const [screenshotUrl, setScreenshotUrl] = useState("");
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [assignmentState, setAssignmentState] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [assignmentError, setAssignmentError] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  useEffect(() => {
+    return () => {
+      if (uploadPreview) {
+        URL.revokeObjectURL(uploadPreview);
+      }
+    };
+  }, [uploadPreview]);
 
   const fetchAssignment = useCallback(async () => {
     setAssignmentState("loading");
@@ -85,6 +93,12 @@ export default function PurchaseSubmitPage() {
       return;
     }
 
+    if (!file) {
+      setStatus("error");
+      setMessage("スクリーンショット画像をアップロードしてください");
+      return;
+    }
+
     // auth セッション取得
     const {
       data: { session },
@@ -99,12 +113,31 @@ export default function PurchaseSubmitPage() {
 
     const userId = session.user.id;
 
+    const uploadForm = new FormData();
+    uploadForm.append("file", file);
+    const uploadRes = await fetch("/api/uploads/screenshot", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: uploadForm,
+    });
+
+    if (!uploadRes.ok) {
+      const data = await uploadRes.json().catch(() => ({ error: "アップロードに失敗しました" }));
+      setStatus("error");
+      setMessage(data.error || "画像のアップロードに失敗しました");
+      return;
+    }
+
+    const { path: storagePath } = await uploadRes.json();
+
     // purchases へ挿入（status=submitted）
     const { data: insertedPurchase, error: insertError } = await supabase
       .from("purchases")
       .insert({
         user_id: userId,
-        screenshot_url: screenshotUrl || null,
+        screenshot_url: storagePath,
         notes: note || null,
         status: "submitted",
       })
@@ -148,7 +181,8 @@ export default function PurchaseSubmitPage() {
     await refresh();
     setStatus("success");
     setMessage("提出しました。承認をお待ちください。");
-    setScreenshotUrl("");
+    setFile(null);
+    setUploadPreview(null);
     setNote("");
     await fetchAssignment();
   };
@@ -271,24 +305,34 @@ export default function PurchaseSubmitPage() {
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <label className="block text-sm font-bold text-[#5D4037] ml-1">
-                スクショURL（仮実装）
+                スクリーンショット画像
                 <span className="ml-2 text-xs font-normal text-[#FF8FA3] bg-[#FFF5F7] px-2 py-0.5 rounded-full border border-[#FFD1DC]">必須</span>
               </label>
               <input
-                type="url"
-                value={screenshotUrl}
-                onChange={(e) => setScreenshotUrl(e.target.value)}
-                placeholder="https://..."
-                className="w-full rounded-2xl border-2 border-[#FFD1DC] bg-white/50 px-4 py-3 text-[#5D4037] placeholder-[#5D4037]/30 outline-none transition-all focus:border-[#FF8FA3] focus:bg-white focus:ring-4 focus:ring-[#FF8FA3]/20"
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const selected = e.target.files?.[0] ?? null;
+                  setFile(selected ?? null);
+                  setUploadPreview(selected ? URL.createObjectURL(selected) : null);
+                }}
+                className="w-full rounded-2xl border-2 border-[#FFD1DC] bg-white/50 px-4 py-3 text-[#5D4037] outline-none transition-all focus:border-[#FF8FA3] focus:bg-white focus:ring-4 focus:ring-[#FF8FA3]/20"
               />
               <p className="text-xs text-[#5D4037]/50 ml-1">
-                ※ 将来的に画像アップロード機能を実装予定です。現在は画像のURLを入力してください。
+                購入完了画面など、金額と商品が分かる画像をアップロードしてください。
               </p>
+              {uploadPreview && (
+                <div className="rounded-2xl border border-[#FFD1DC] bg-white/60 p-3">
+                  <p className="text-xs font-bold text-[#5D4037]/60 mb-2">アップロード予定のプレビュー</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={uploadPreview} alt="Screenshot preview" className="w-full rounded-xl object-contain" />
+                </div>
+              )}
             </div>
             
             <div className="space-y-2">
               <label className="block text-sm font-bold text-[#5D4037] ml-1">
-                一言メモ（任意）
+                運営へのメモ（任意）
               </label>
               <textarea
                 value={note}

@@ -19,7 +19,7 @@ const statusLabel: Record<string, string> = {
 const cta: Record<string, string> = {
   AWAITING_TOS_AGREEMENT: "規約に同意する",
   AWAITING_GUIDE_CHECK: "使い方を見る",
-  READY_TO_PURCHASE: "スクショを提出する",
+  READY_TO_PURCHASE: "誰かの欲しいものリストを購入する",
   READY_TO_REGISTER_WISHLIST: "欲しいものリストを登録する",
   READY_TO_DRAW: "りんごを引く",
   REVEALING: "結果を確認する",
