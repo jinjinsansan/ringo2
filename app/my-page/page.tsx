@@ -1,18 +1,29 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 
-const nextActions: Record<string, string> = {
-  AWAITING_TOS_AGREEMENT: "利用規約に同意してください。/tos へ",
-  AWAITING_GUIDE_CHECK: "使い方ガイドを確認してください。/guide へ",
-  READY_TO_PURCHASE: "誰かの欲しいものを購入し、スクショを提出してください。/purchase/submit へ",
-  AWAITING_APPROVAL: "管理者の承認をお待ちください。",
-  READY_TO_REGISTER_WISHLIST: "自分の欲しいものリストを登録してください（未実装）。",
-  READY_TO_DRAW: "りんごを引けます。/draw へ",
-  REVEALING: "結果公開までお待ちください。/reveal/{id} へ",
-  WAITING_FOR_FULFILLMENT: "あなたの欲しいものが購入されるのを待っています。",
-  CYCLE_COMPLETE: "サイクル完了。次のサイクルを開始できます。",
+const statusLabel: Record<string, string> = {
+  AWAITING_TOS_AGREEMENT: "利用規約の同意が必要です",
+  AWAITING_GUIDE_CHECK: "使い方ガイドの確認が必要です",
+  READY_TO_PURCHASE: "購入ステップへ進めます",
+  AWAITING_APPROVAL: "購入承認待ちです",
+  READY_TO_REGISTER_WISHLIST: "欲しいものリスト登録が必要です",
+  READY_TO_DRAW: "りんごを引けます",
+  REVEALING: "結果待ちです",
+  WAITING_FOR_FULFILLMENT: "あなたの欲しいものが買われるのを待っています",
+  CYCLE_COMPLETE: "サイクル完了。次へ進めます",
+};
+
+const cta: Record<string, string> = {
+  AWAITING_TOS_AGREEMENT: "規約に同意する",
+  AWAITING_GUIDE_CHECK: "使い方を見る",
+  READY_TO_PURCHASE: "スクショを提出する",
+  READY_TO_REGISTER_WISHLIST: "リストを登録する (準備中)",
+  READY_TO_DRAW: "りんごを引く",
+  REVEALING: "結果を確認する",
+  CYCLE_COMPLETE: "次のサイクルへ",
 };
 
 const links: Record<string, string | null> = {
@@ -29,14 +40,12 @@ const links: Record<string, string | null> = {
 
 export default function MyPage() {
   const { user, loading, refresh } = useUser();
+  const router = useRouter();
 
-  const statusText = useMemo(() => {
-    if (!user?.status) return "--";
-    return user.status;
-  }, [user?.status]);
-
-  const next = user?.status ? nextActions[user.status] ?? "" : "";
-  const link = user?.status ? links[user.status] ?? null : null;
+  const currentStatus = user?.status ?? "";
+  const label = useMemo(() => statusLabel[currentStatus] ?? "状態を取得できません", [currentStatus]);
+  const actionText = useMemo(() => cta[currentStatus] ?? "", [currentStatus]);
+  const link = useMemo(() => links[currentStatus] ?? null, [currentStatus]);
 
   if (loading) {
     return (
@@ -59,15 +68,18 @@ export default function MyPage() {
       <div className="mx-auto w-full max-w-2xl rounded-2xl bg-white p-8 shadow-lg">
         <h1 className="font-heading mb-4 text-2xl">マイページ</h1>
         <div className="space-y-2 text-sm text-[#5C4033]/90">
-          <div className="font-semibold">現在のステータス: {statusText}</div>
-          <div>次のアクション: {next}</div>
-          {link && (
-            <a
-              href={link}
-              className="inline-block rounded-full bg-[#FFC0CB] px-4 py-2 text-xs font-semibold text-[#5C4033] shadow-sm transition hover:shadow-md"
+          <div className="text-xs font-semibold text-[#a34a5d]">今のステップ</div>
+          <div className="text-base font-semibold">{label}</div>
+          {link && actionText && (
+            <button
+              onClick={() => router.push(link)}
+              className="mt-3 inline-block rounded-full bg-[#FFC0CB] px-4 py-2 text-xs font-semibold text-[#5C4033] shadow-sm transition hover:shadow-md"
             >
-              進む
-            </a>
+              {actionText}
+            </button>
+          )}
+          {!link && actionText && (
+            <div className="mt-3 text-xs text-[#5C4033]/80">{actionText}</div>
           )}
         </div>
 
