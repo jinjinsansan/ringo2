@@ -67,13 +67,13 @@ export default function Home() {
             <div className="ml-6 flex items-center gap-3">
               <a
                 className="rounded-full border border-[#FFC0CB] px-4 py-2 text-sm font-semibold text-[#5C4033] transition hover:bg-[#FFC0CB]/80"
-                href="#login"
+                href="/login"
               >
                 ログイン
               </a>
               <a
                 className="rounded-full bg-[#FFC0CB] px-5 py-2 text-sm font-semibold text-[#5C4033] shadow-md transition hover:shadow-lg"
-                href="#signup"
+                href="/signup"
               >
                 無料で新規登録
               </a>
@@ -127,10 +127,10 @@ export default function Home() {
                     {item.label}
                   </a>
                 ))}
-                <a className="mt-2 rounded-full border border-[#FFC0CB] px-4 py-2 text-center font-semibold" href="#login">
+                <a className="mt-2 rounded-full border border-[#FFC0CB] px-4 py-2 text-center font-semibold" href="/login">
                   ログイン
                 </a>
-                <a className="rounded-full bg-[#FFC0CB] px-4 py-2 text-center font-semibold text-[#5C4033] shadow-sm" href="#signup">
+                <a className="rounded-full bg-[#FFC0CB] px-4 py-2 text-center font-semibold text-[#5C4033] shadow-sm" href="/signup">
                   無料で新規登録
                 </a>
               </div>
@@ -166,13 +166,13 @@ export default function Home() {
               </p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <a
-                  href="#signup"
+                  href="/signup"
                   className="inline-flex items-center justify-center rounded-full bg-[#FFC0CB] px-6 py-3 text-sm font-semibold text-[#5C4033] shadow-md transition hover:shadow-lg"
                 >
                   無料で新規登録
                 </a>
                 <a
-                  href="#login"
+                  href="/login"
                   className="inline-flex items-center justify-center rounded-full border border-[#FFC0CB] bg-white/80 px-6 py-3 text-sm font-semibold text-[#5C4033] transition hover:bg-[#FFC0CB]/30"
                 >
                   ログイン
