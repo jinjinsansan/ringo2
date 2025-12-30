@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FlowGuard } from "@/components/FlowGuard";
 import { useUser } from "@/context/UserContext";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function TOSPage() {
   const { refresh } = useUser();
@@ -14,15 +15,24 @@ export default function TOSPage() {
   const handleAgree = async () => {
     setLoading(true);
     setError("");
-    const res = await fetch("/api/user/status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "agree_tos" }),
-    });
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "更新に失敗しました");
+    if (sessionError || !session?.user) {
+      setError("ログインが必要です");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("users")
+      .update({ tos_agreed: true, status: "AWAITING_GUIDE_CHECK" })
+      .eq("id", session.user.id);
+
+    if (error) {
+      setError(error.message ?? "更新に失敗しました");
       setLoading(false);
       return;
     }
