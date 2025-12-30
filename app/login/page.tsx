@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type Status = "idle" | "loading" | "success" | "error";
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -27,6 +29,9 @@ export default function LoginPage() {
     setStatus("success");
     setMessage("ログインしました。マイページへお進みください。");
     setPassword("");
+
+    // マイページへ遷移
+    router.push("/my-page");
   };
 
   return (
