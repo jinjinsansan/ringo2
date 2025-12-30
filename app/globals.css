@@ -1,11 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --color-primary: #ffc0cb;
-  --color-secondary: #fffdd0;
-  --color-text: #5c4033;
-  --color-accent: #98ff98;
-  --color-bg: #f5f5f5;
+  /* Sophisticated Pink Theme */
+  --color-primary: #FF8FA3; /* Soft Pink */
+  --color-primary-dark: #FF6B8B; /* Darker Pink for hover */
+  --color-accent: #FFD1DC; /* Pastel Pink */
+  --color-text: #5D4037; /* Warm Brown */
+  --color-bg: #FFF5F7; /* Very Light Pink Background */
+  --color-white: #ffffff;
 }
 
 @theme inline {
@@ -13,12 +15,20 @@
   --color-foreground: var(--color-text);
   --font-sans: var(--font-body);
   --font-heading: var(--font-heading);
+  
+  --color-primary: var(--color-primary);
+  --color-primary-dark: var(--color-primary-dark);
+  --color-accent: var(--color-accent);
 }
 
 body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-body), "Noto Sans JP", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(255, 209, 220, 0.4) 0%, transparent 20%),
+    radial-gradient(circle at 90% 80%, rgba(255, 143, 163, 0.2) 0%, transparent 25%);
+  background-attachment: fixed;
 }
 
 .font-heading {
@@ -26,14 +36,30 @@ body {
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 32px 0 rgba(255, 143, 163, 0.15);
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 14px 0 rgba(255, 143, 163, 0.39);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255, 143, 163, 0.23);
 }
 
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -42,5 +68,15 @@ body {
 }
 
 .animate-fade-up {
-  animation: fade-up 0.8s ease forwards;
+  animation: fade-up 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }

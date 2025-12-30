@@ -10,10 +10,10 @@ const statusLabel: Record<string, string> = {
   READY_TO_PURCHASE: "購入ステップへ進めます",
   AWAITING_APPROVAL: "購入承認待ちです",
   READY_TO_REGISTER_WISHLIST: "欲しいものリスト登録が必要です",
-  READY_TO_DRAW: "りんごを引けます",
-  REVEALING: "結果待ちです",
+  READY_TO_DRAW: "りんごを引けます！",
+  REVEALING: "運命の結果待ちです...",
   WAITING_FOR_FULFILLMENT: "あなたの欲しいものが買われるのを待っています",
-  CYCLE_COMPLETE: "サイクル完了。次へ進めます",
+  CYCLE_COMPLETE: "サイクル完了！次へ進めます",
 };
 
 const cta: Record<string, string> = {
@@ -38,6 +38,18 @@ const links: Record<string, string | null> = {
   AWAITING_APPROVAL: null,
 };
 
+const statusIcon: Record<string, string> = {
+  AWAITING_TOS_AGREEMENT: "📜",
+  AWAITING_GUIDE_CHECK: "📖",
+  READY_TO_PURCHASE: "🎁",
+  AWAITING_APPROVAL: "⏳",
+  READY_TO_REGISTER_WISHLIST: "📝",
+  READY_TO_DRAW: "🍎",
+  REVEALING: "✨",
+  WAITING_FOR_FULFILLMENT: "💖",
+  CYCLE_COMPLETE: "🎉",
+};
+
 export default function MyPage() {
   const { user, loading, refresh } = useUser();
   const router = useRouter();
@@ -46,48 +58,95 @@ export default function MyPage() {
   const label = useMemo(() => statusLabel[currentStatus] ?? "状態を取得できません", [currentStatus]);
   const actionText = useMemo(() => cta[currentStatus] ?? "", [currentStatus]);
   const link = useMemo(() => links[currentStatus] ?? null, [currentStatus]);
+  const icon = useMemo(() => statusIcon[currentStatus] ?? "❓", [currentStatus]);
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5] text-[#5C4033]">
-        読み込み中...
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin text-4xl">🍎</div>
+          <p className="font-bold text-[#FF8FA3]">読み込み中...</p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5] text-[#5C4033]">
-        ユーザー情報が取得できません。ログインを確認してください。
+      <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5] text-[#5C4033] px-4">
+        <div className="glass-card p-8 rounded-3xl text-center max-w-md w-full">
+          <p className="mb-4">ユーザー情報が取得できません。<br />ログインを確認してください。</p>
+          <button 
+            onClick={() => router.push("/login")}
+            className="btn-primary px-6 py-2 rounded-full font-bold"
+          >
+            ログイン画面へ
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] px-4 py-12 text-[#5C4033]">
-      <div className="mx-auto w-full max-w-2xl rounded-2xl bg-white p-8 shadow-lg">
-        <h1 className="font-heading mb-4 text-2xl">マイページ</h1>
-        <div className="space-y-2 text-sm text-[#5C4033]/90">
-          <div className="text-xs font-semibold text-[#a34a5d]">今のステップ</div>
-          <div className="text-base font-semibold">{label}</div>
-          {link && actionText && (
-            <button
-              onClick={() => router.push(link)}
-              className="mt-3 inline-block rounded-full bg-[#FFC0CB] px-4 py-2 text-xs font-semibold text-[#5C4033] shadow-sm transition hover:shadow-md"
-            >
-              {actionText}
-            </button>
-          )}
-          {!link && actionText && (
-            <div className="mt-3 text-xs text-[#5C4033]/80">{actionText}</div>
-          )}
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 relative overflow-hidden">
+      {/* Background Decor */}
+      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_10%_10%,rgba(255,209,220,0.5),transparent_50%)] pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(circle_at_90%_90%,rgba(255,253,208,0.5),transparent_50%)] pointer-events-none" />
+
+      <div className="glass-card w-full max-w-lg p-8 md:p-10 rounded-[40px] shadow-2xl relative z-10 animate-fade-up border-2 border-white">
+        <div className="text-center mb-8">
+          <h1 className="font-heading text-2xl font-bold text-[#5D4037] mb-1">マイページ</h1>
+          <p className="text-[#FF8FA3] font-bold text-sm">Welcome back!</p>
+        </div>
+
+        <div className="bg-white/60 rounded-3xl p-8 mb-8 border border-[#FFD1DC] shadow-sm text-center relative overflow-hidden">
+           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#FFD1DC] via-[#FF8FA3] to-[#FFD1DC]" />
+           
+           <div className="text-6xl mb-4 animate-float">{icon}</div>
+           
+           <div className="space-y-2">
+             <div className="text-xs font-bold text-[#FF8FA3] tracking-widest uppercase">Current Status</div>
+             <div className="text-lg font-bold text-[#5D4037]">{label}</div>
+           </div>
+
+           {link && actionText && (
+             <button
+               onClick={() => router.push(link)}
+               className="btn-primary mt-6 w-full py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all"
+             >
+               {actionText} <span className="ml-1">→</span>
+             </button>
+           )}
+           
+           {!link && actionText && (
+             <div className="mt-6 py-3 px-4 bg-[#F5F5F5] rounded-full text-sm font-bold text-[#5D4037]/60">
+               {actionText}
+             </div>
+           )}
+        </div>
+
+        {/* Dashboard Stats (Placeholder for future features) */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+           <div className="bg-white/40 p-4 rounded-2xl text-center border border-white">
+              <div className="text-2xl mb-1">🎫</div>
+              <div className="text-xs text-[#5D4037]/60 font-bold">免除チケット</div>
+              <div className="text-lg font-heading font-bold text-[#FF8FA3]">0枚</div>
+           </div>
+           <div className="bg-white/40 p-4 rounded-2xl text-center border border-white">
+              <div className="text-2xl mb-1">💝</div>
+              <div className="text-xs text-[#5D4037]/60 font-bold">獲得りんご</div>
+              <div className="text-lg font-heading font-bold text-[#FF8FA3]">0個</div>
+           </div>
         </div>
 
         <button
           onClick={refresh}
-          className="mt-6 w-full rounded-full border border-[#FFC0CB] px-4 py-2 text-sm font-semibold text-[#5C4033] transition hover:bg-[#FFC0CB]/30"
+          className="w-full py-3 rounded-full border-2 border-[#FFD1DC] text-[#FF8FA3] font-bold text-sm hover:bg-[#FFF5F7] transition-colors flex items-center justify-center gap-2"
         >
-          ステータスを再取得
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          ステータスを更新
         </button>
       </div>
     </div>

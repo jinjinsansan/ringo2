@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Image from "next/image";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type Result = "bronze" | "silver" | "gold" | "red" | "poison";
@@ -39,6 +39,7 @@ function getFilter(revealAt: string) {
 
 export default function RevealPage() {
   const params = useParams();
+  const router = useRouter();
   const appleId = params?.id as string | undefined;
   const [apple, setApple] = useState<Apple | null>(null);
   const [filter, setFilter] = useState("blur(16px) grayscale(100%)");
@@ -131,33 +132,81 @@ export default function RevealPage() {
   const cardSrc = apple ? cardMap[apple.result] : "/images/cards/bronze_apple_card_v2.png";
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] px-4 py-12 text-[#5C4033]">
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 rounded-2xl bg-white p-8 shadow-lg">
-        <h1 className="font-heading text-2xl">抽選結果</h1>
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 relative overflow-hidden">
+      {/* Background Decor */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.8),transparent_100%)] z-0" />
+      <div className="absolute top-20 left-1/3 w-96 h-96 bg-[#FFD1DC] rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-float" />
+      <div className="absolute bottom-20 right-1/3 w-96 h-96 bg-[#FFFDD0] rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-float" style={{ animationDelay: "2s" }} />
 
-        {loading && <p className="text-sm text-[#5C4033]/80">読み込み中...</p>}
-        {message && <p className="text-sm text-red-600">{message}</p>}
+      <div className="glass-card w-full max-w-3xl flex flex-col items-center gap-8 rounded-[40px] p-8 md:p-12 shadow-2xl relative z-10 animate-fade-up border-2 border-white">
+        <div className="text-center">
+          <h1 className="font-heading text-3xl font-bold text-[#5D4037] mb-2">抽選結果</h1>
+          {!loading && !message && (
+             <p className="text-[#FF8FA3] font-bold">
+                {isRevealed ? "運命の瞬間です！" : "結果が出るまで、しばらくお待ちください..."}
+             </p>
+          )}
+        </div>
+
+        {loading && (
+           <div className="flex flex-col items-center gap-2 py-20">
+             <div className="animate-spin text-4xl">⏳</div>
+             <p className="font-bold text-[#5D4037]">データを読み込んでいます...</p>
+           </div>
+        )}
+        
+        {message && (
+           <div className="p-4 bg-[#FFEBEE] text-red-700 border border-red-200 rounded-xl font-bold">
+             {message}
+           </div>
+        )}
 
         {apple && (
-          <>
-            <div className="text-sm text-[#5C4033]/70">結果公開まで: {isRevealed ? "00:00" : countdown}</div>
-            <div className="relative flex h-96 w-64 items-center justify-center overflow-hidden rounded-2xl bg-[#FFFDD0]/60 shadow-md">
+          <div className="flex flex-col items-center w-full">
+            <div className="mb-6 bg-white/60 px-6 py-2 rounded-full shadow-sm border border-[#FFD1DC]">
+              <span className="text-xs font-bold text-[#5D4037]/60 mr-2">REVEAL IN</span>
+              <span className={`text-2xl font-mono font-bold ${isRevealed ? "text-[#FF8FA3]" : "text-[#5D4037]"}`}>
+                {isRevealed ? "00:00" : countdown}
+              </span>
+            </div>
+
+            <div className="relative flex h-[400px] w-full max-w-[300px] items-center justify-center overflow-hidden rounded-3xl bg-white shadow-xl border-4 border-white transform hover:scale-105 transition-transform duration-500">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#FFFDD0,transparent)] opacity-50" />
               <Image
                 src={cardSrc}
                 alt="apple card"
                 fill
-                className="object-contain transition-all duration-700"
+                className="object-contain p-4 transition-all duration-1000"
                 style={{ filter }}
-                sizes="256px"
+                sizes="(max-width: 768px) 100vw, 300px"
                 priority
               />
             </div>
+
             {isRevealed && (
-              <div className="mt-2 text-center text-sm font-semibold text-[#5C4033]">
-                結果: {apple.result}
+              <div className="mt-8 text-center animate-fade-up space-y-4 w-full">
+                <div>
+                   <p className="text-sm font-bold text-[#5D4037]/60">RESULT</p>
+                   <p className="text-4xl font-heading font-bold text-[#FF8FA3] mt-1 capitalize">
+                     {apple.result} Apple
+                   </p>
+                </div>
+                
+                <button
+                  onClick={() => router.push("/my-page")}
+                  className="btn-primary px-10 py-4 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transition-all"
+                >
+                  マイページへ戻る
+                </button>
               </div>
             )}
-          </>
+            
+            {!isRevealed && (
+               <p className="mt-8 text-sm text-[#5D4037]/60 animate-pulse">
+                 じわじわと結果が見えてきます...
+               </p>
+            )}
+          </div>
         )}
       </div>
     </div>

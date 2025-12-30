@@ -66,48 +66,81 @@ export default function PurchaseSubmitPage() {
 
   return (
     <FlowGuard requiredStatus="READY_TO_PURCHASE" fallback="/">
-      <div className="min-h-screen bg-[#F5F5F5] px-4 py-12 text-[#5C4033]">
-        <div className="mx-auto w-full max-w-2xl rounded-2xl bg-white p-8 shadow-lg">
-          <h1 className="font-heading mb-4 text-2xl">スクリーンショット提出</h1>
-          <p className="mb-6 text-sm leading-relaxed text-[#5C4033]/80">
-            購入完了のスクリーンショットをアップロード（仮でURL入力）し、承認を待ちましょう。
-          </p>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">スクショURL（仮）</label>
+      <div className="min-h-screen flex items-center justify-center py-12 px-4 relative overflow-hidden">
+        {/* Background Decor */}
+        <div className="absolute top-20 left-10 w-32 h-32 bg-[#FFD1DC] rounded-full mix-blend-multiply filter blur-xl opacity-60 animate-float" />
+        <div className="absolute bottom-20 right-10 w-40 h-40 bg-[#FFFDD0] rounded-full mix-blend-multiply filter blur-xl opacity-60 animate-float" style={{ animationDelay: "1.5s" }} />
+
+        <div className="glass-card w-full max-w-2xl p-8 md:p-12 rounded-[32px] shadow-2xl relative z-10 animate-fade-up border-2 border-white">
+          <div className="text-center mb-8">
+            <span className="text-4xl mb-4 block">📸</span>
+            <h1 className="font-heading text-2xl md:text-3xl font-bold text-[#5D4037]">スクリーンショット提出</h1>
+            <p className="text-[#5D4037]/70 mt-3 text-sm leading-relaxed">
+              購入が完了したら、証拠画像をアップロードしましょう。<br />
+              運営が確認した後、りんごを引くことができます！
+            </p>
+          </div>
+
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-[#5D4037] ml-1">
+                スクショURL（仮実装）
+                <span className="ml-2 text-xs font-normal text-[#FF8FA3] bg-[#FFF5F7] px-2 py-0.5 rounded-full border border-[#FFD1DC]">必須</span>
+              </label>
               <input
                 type="url"
                 value={screenshotUrl}
                 onChange={(e) => setScreenshotUrl(e.target.value)}
                 placeholder="https://..."
-                className="w-full rounded-lg border border-[#FFC0CB]/60 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#FFC0CB] focus:ring-2 focus:ring-[#FFC0CB]/50"
+                className="w-full rounded-2xl border-2 border-[#FFD1DC] bg-white/50 px-4 py-3 text-[#5D4037] placeholder-[#5D4037]/30 outline-none transition-all focus:border-[#FF8FA3] focus:bg-white focus:ring-4 focus:ring-[#FF8FA3]/20"
               />
+              <p className="text-xs text-[#5D4037]/50 ml-1">
+                ※ 将来的に画像アップロード機能を実装予定です。現在は画像のURLを入力してください。
+              </p>
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">メモ（任意）</label>
+            
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-[#5D4037] ml-1">
+                一言メモ（任意）
+              </label>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
-                className="w-full rounded-lg border border-[#FFC0CB]/60 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#FFC0CB] focus:ring-2 focus:ring-[#FFC0CB]/50"
+                placeholder="例: 無事に購入できました！届くのが楽しみですね。"
+                className="w-full rounded-2xl border-2 border-[#FFD1DC] bg-white/50 px-4 py-3 text-[#5D4037] placeholder-[#5D4037]/30 outline-none transition-all focus:border-[#FF8FA3] focus:bg-white focus:ring-4 focus:ring-[#FF8FA3]/20 resize-none"
               />
             </div>
+
             <button
               type="submit"
               disabled={status === "loading"}
-              className="w-full rounded-full bg-[#FFC0CB] px-6 py-3 text-sm font-semibold text-[#5C4033] shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-primary w-full py-4 rounded-full font-bold text-lg shadow-lg hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed transform active:scale-95 transition-all"
             >
-              {status === "loading" ? "送信中..." : "提出する"}
+              {status === "loading" ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  送信中...
+                </span>
+              ) : (
+                "提出して承認を待つ"
+              )}
             </button>
           </form>
+
           {message && (
-            <p
-              className={`mt-4 text-sm ${
-                status === "success" ? "text-green-700" : "text-red-600"
+            <div
+              className={`mt-6 p-4 rounded-xl text-sm font-bold text-center animate-fade-up ${
+                status === "success" 
+                  ? "bg-[#E8F5E9] text-green-700 border border-green-200" 
+                  : "bg-[#FFEBEE] text-red-700 border border-red-200"
               }`}
             >
               {message}
-            </p>
+            </div>
           )}
         </div>
       </div>
