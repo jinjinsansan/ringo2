@@ -4,7 +4,7 @@ import "./globals.css";
 
 const notoSans = Noto_Sans_JP({
   variable: "--font-body",
-  subsets: ["latin", "latin-ext", "cyrillic", "cyrillic-ext", "greek", "greek-ext", "vietnamese"],
+  subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
 });
