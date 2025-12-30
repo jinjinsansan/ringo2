@@ -20,7 +20,7 @@ const cta: Record<string, string> = {
   AWAITING_TOS_AGREEMENT: "規約に同意する",
   AWAITING_GUIDE_CHECK: "使い方を見る",
   READY_TO_PURCHASE: "スクショを提出する",
-  READY_TO_REGISTER_WISHLIST: "リストを登録する (準備中)",
+  READY_TO_REGISTER_WISHLIST: "欲しいものリストを登録する",
   READY_TO_DRAW: "りんごを引く",
   REVEALING: "結果を確認する",
   CYCLE_COMPLETE: "次のサイクルへ",
@@ -30,7 +30,7 @@ const links: Record<string, string | null> = {
   AWAITING_TOS_AGREEMENT: "/tos",
   AWAITING_GUIDE_CHECK: "/guide",
   READY_TO_PURCHASE: "/purchase/submit",
-  READY_TO_REGISTER_WISHLIST: null,
+  READY_TO_REGISTER_WISHLIST: "/wishlist/register",
   READY_TO_DRAW: "/draw",
   REVEALING: null,
   WAITING_FOR_FULFILLMENT: null,
@@ -59,6 +59,16 @@ export default function MyPage() {
   const actionText = useMemo(() => cta[currentStatus] ?? "", [currentStatus]);
   const link = useMemo(() => links[currentStatus] ?? null, [currentStatus]);
   const icon = useMemo(() => statusIcon[currentStatus] ?? "❓", [currentStatus]);
+  const canManageWishlist = useMemo(() => {
+    const allowed = new Set([
+      "READY_TO_REGISTER_WISHLIST",
+      "READY_TO_DRAW",
+      "REVEALING",
+      "WAITING_FOR_FULFILLMENT",
+      "CYCLE_COMPLETE",
+    ]);
+    return allowed.has(currentStatus);
+  }, [currentStatus]);
 
   if (loading) {
     return (
@@ -137,6 +147,41 @@ export default function MyPage() {
               <div className="text-xs text-[#5D4037]/60 font-bold">獲得りんご</div>
               <div className="text-lg font-heading font-bold text-[#FF8FA3]">0個</div>
            </div>
+        </div>
+
+        <div className="mb-8 rounded-3xl border border-white bg-white/70 p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-[#FF8FA3] uppercase tracking-widest">WISHLIST</p>
+              <p className="text-lg font-heading text-[#5D4037] mt-1">あなたの欲しいもの</p>
+              <p className="text-xs text-[#5D4037]/60 mt-1">
+                登録済みのリストは、いつでもここから確認できます。
+              </p>
+            </div>
+            {canManageWishlist && (
+              <button
+                onClick={() => router.push("/wishlist/register")}
+                className="rounded-full border border-[#FFC0CB] px-4 py-2 text-xs font-bold text-[#FF8FA3] hover:bg-[#FFF5F7]"
+              >
+                {user.wishlist_url ? "編集する" : "登録する"}
+              </button>
+            )}
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-[#FFF5F7] border border-[#FFD1DC] px-4 py-3 text-sm text-[#5D4037] break-all">
+            {user.wishlist_url ? (
+              <a
+                href={user.wishlist_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#a34a5d] underline"
+              >
+                {user.wishlist_url}
+              </a>
+            ) : (
+              <span>まだ欲しいものリストが登録されていません。</span>
+            )}
+          </div>
         </div>
 
         <button

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 
 type Props = {
-  requiredStatus: string;
+  requiredStatus: string | string[];
   fallback?: string; // redirect destination when not matched
   children: React.ReactNode;
 };
@@ -22,9 +22,14 @@ const order = [
   "CYCLE_COMPLETE",
 ];
 
-function shouldRedirect(current?: string | null, required?: string) {
-  if (!current || !required) return true;
-  return current !== required;
+function normalizeRequired(requiredStatus: string | string[]) {
+  return Array.isArray(requiredStatus) ? requiredStatus : [requiredStatus];
+}
+
+function shouldRedirect(current?: string | null, requiredStatus?: string | string[]) {
+  if (!current || !requiredStatus) return true;
+  const allowed = normalizeRequired(requiredStatus);
+  return !allowed.includes(current);
 }
 
 export function FlowGuard({ requiredStatus, fallback = "/", children }: Props) {
@@ -37,7 +42,10 @@ export function FlowGuard({ requiredStatus, fallback = "/", children }: Props) {
     if (shouldRedirect(user?.status, requiredStatus)) {
       // If the user is earlier in the flow, send them to the closest previous step
       const currentIndex = user ? order.indexOf(user.status) : -1;
-      const requiredIndex = order.indexOf(requiredStatus);
+      const requiredIndices = normalizeRequired(requiredStatus)
+        .map((status) => order.indexOf(status))
+        .filter((idx) => idx >= 0);
+      const requiredIndex = requiredIndices.length > 0 ? Math.min(...requiredIndices) : -1;
 
       if (currentIndex >= 0 && requiredIndex >= 0 && currentIndex < requiredIndex) {
         // send to current step page by simple mapping (minimal for now)

@@ -1,21 +1,90 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FlowGuard } from "@/components/FlowGuard";
 import { supabase } from "@/lib/supabaseClient";
 import { useUser } from "@/context/UserContext";
 
+type Assignment = {
+  id: string;
+  status: string;
+  target: {
+    userId: string;
+    maskedId: string;
+    wishlistUrl: string | null;
+    status: string;
+    details: {
+      primary_item_name: string | null;
+      primary_item_url: string | null;
+      budget_min: number | null;
+      budget_max: number | null;
+      note: string | null;
+    } | null;
+  };
+};
+
 export default function PurchaseSubmitPage() {
   const { refresh } = useUser();
+  const formatBudget = (value?: number | null) =>
+    typeof value === "number" ? value.toLocaleString() : "-";
   const [screenshotUrl, setScreenshotUrl] = useState("");
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [assignmentState, setAssignmentState] = useState<"loading" | "ready" | "empty" | "error">("loading");
+  const [assignmentError, setAssignmentError] = useState("");
+
+  const fetchAssignment = useCallback(async () => {
+    setAssignmentState("loading");
+    setAssignmentError("");
+    setAssignment(null);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setAssignmentState("error");
+      setAssignmentError("ログインが必要です");
+      return;
+    }
+
+    const res = await fetch("/api/assignments", {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: "割当を取得できませんでした" }));
+      setAssignmentState(res.status === 404 ? "empty" : "error");
+      setAssignmentError(data.error || "割当を取得できませんでした");
+      return;
+    }
+
+    const data = await res.json();
+    setAssignment(data.assignment as Assignment);
+    setAssignmentState("ready");
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchAssignment();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchAssignment]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setStatus("loading");
     setMessage("");
+
+    if (!assignment) {
+      setStatus("error");
+      setMessage("割当先が決定してから提出してください");
+      return;
+    }
 
     // auth セッション取得
     const {
@@ -32,16 +101,36 @@ export default function PurchaseSubmitPage() {
     const userId = session.user.id;
 
     // purchases へ挿入（status=submitted）
-    const { error: insertError } = await supabase.from("purchases").insert({
-      user_id: userId,
-      screenshot_url: screenshotUrl || null,
-      notes: note || null,
-      status: "submitted",
+    const { data: insertedPurchase, error: insertError } = await supabase
+      .from("purchases")
+      .insert({
+        user_id: userId,
+        screenshot_url: screenshotUrl || null,
+        notes: note || null,
+        status: "submitted",
+      })
+      .select("id")
+      .single();
+
+    if (insertError || !insertedPurchase) {
+      setStatus("error");
+      setMessage(insertError?.message ?? "提出に失敗しました");
+      return;
+    }
+
+    const assignmentUpdate = await fetch("/api/assignments", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ assignmentId: assignment.id, purchaseId: insertedPurchase.id, status: "submitted" }),
     });
 
-    if (insertError) {
+    if (!assignmentUpdate.ok) {
+      const data = await assignmentUpdate.json().catch(() => ({ error: "割当の更新に失敗しました" }));
       setStatus("error");
-      setMessage(insertError.message ?? "提出に失敗しました");
+      setMessage(data.error || "割当の更新に失敗しました");
       return;
     }
 
@@ -62,6 +151,7 @@ export default function PurchaseSubmitPage() {
     setMessage("提出しました。承認をお待ちください。");
     setScreenshotUrl("");
     setNote("");
+    await fetchAssignment();
   };
 
   return (
@@ -71,7 +161,7 @@ export default function PurchaseSubmitPage() {
         <div className="absolute top-20 left-10 w-32 h-32 bg-[#FFD1DC] rounded-full mix-blend-multiply filter blur-xl opacity-60 animate-float" />
         <div className="absolute bottom-20 right-10 w-40 h-40 bg-[#FFFDD0] rounded-full mix-blend-multiply filter blur-xl opacity-60 animate-float" style={{ animationDelay: "1.5s" }} />
 
-        <div className="glass-card w-full max-w-2xl p-8 md:p-12 rounded-[32px] shadow-2xl relative z-10 animate-fade-up border-2 border-white">
+        <div className="glass-card w-full max-w-2xl p-8 md:p-12 rounded-[32px] shadow-2xl relative z-10 animate-fade-up border-2 border-white space-y-8">
           <div className="text-center mb-8">
             <span className="text-4xl mb-4 block">📸</span>
             <h1 className="font-heading text-2xl md:text-3xl font-bold text-[#5D4037]">スクリーンショット提出</h1>
@@ -80,6 +170,98 @@ export default function PurchaseSubmitPage() {
               運営が確認した後、りんごを引くことができます！
             </p>
           </div>
+
+          <section className="rounded-3xl border border-[#FFD1DC] bg-white/70 p-6 shadow-inner">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold text-[#FF8FA3] uppercase tracking-widest">ASSIGNMENT</p>
+                {assignmentState === "ready" && assignment ? (
+                  <>
+                    <p className="font-heading text-xl text-[#5D4037] mt-2">
+                      {assignment.target.maskedId} さんのリスト
+                    </p>
+                    <p className="text-sm text-[#5D4037]/70 mt-1">
+                      この方の欲しいものリストから、指定の商品を購入してください。
+                    </p>
+                  </>
+                ) : assignmentState === "loading" ? (
+                  <p className="text-sm text-[#5D4037]/60 mt-2">割当を確認しています...</p>
+                ) : assignmentState === "empty" ? (
+                  <p className="text-sm text-[#5D4037]/60 mt-2">
+                    現在割当可能なリストがありません。少し時間を置いて再度お試しください。
+                  </p>
+                ) : (
+                  <p className="text-sm text-red-600 mt-2">{assignmentError || "割当を取得できませんでした"}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => void fetchAssignment()}
+                className="whitespace-nowrap rounded-full border border-[#FFC0CB] px-4 py-2 text-sm font-semibold text-[#FF8FA3] hover:bg-[#FFF5F7] disabled:opacity-50"
+                disabled={assignmentState === "loading"}
+              >
+                再取得
+              </button>
+            </div>
+
+            {assignmentState === "ready" && assignment && (
+              <div className="mt-5 space-y-4 text-sm text-[#5D4037]">
+                <div className="bg-[#FFF5F7] border border-[#FFD1DC] rounded-2xl px-4 py-3">
+                  <p className="font-bold text-[#5D4037]/80 text-xs">リストURL</p>
+                  {assignment.target.wishlistUrl ? (
+                    <a
+                      href={assignment.target.wishlistUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#a34a5d] underline break-all"
+                    >
+                      {assignment.target.wishlistUrl}
+                    </a>
+                  ) : (
+                    <p className="text-[#5D4037]/70">URLが未登録です。管理者に連絡してください。</p>
+                  )}
+                </div>
+
+                <div className="bg-white/80 border border-white rounded-2xl px-4 py-3">
+                  <p className="font-bold text-[#5D4037]/80 text-xs">優先アイテム</p>
+                  <p className="text-lg font-heading text-[#5D4037]">
+                    {assignment.target.details?.primary_item_name ?? "未入力"}
+                  </p>
+                  {assignment.target.details?.primary_item_url && (
+                    <a
+                      href={assignment.target.details.primary_item_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#a34a5d] underline text-xs"
+                    >
+                      商品ページを開く
+                    </a>
+                  )}
+                </div>
+
+                <div className="bg-white/80 border border-white rounded-2xl px-4 py-3 text-xs text-[#5D4037]/80">
+                  <div className="flex flex-wrap gap-4">
+                    <div>
+                      <p className="font-bold uppercase text-[#FF8FA3] tracking-widest">Budget</p>
+                  <p className="text-base text-[#5D4037] mt-1">
+                    {assignment.target.details?.budget_min != null || assignment.target.details?.budget_max != null
+                      ? `${formatBudget(assignment.target.details?.budget_min)} 〜 ${formatBudget(assignment.target.details?.budget_max)} 円`
+                      : "指定なし"}
+                  </p>
+                    </div>
+                    {assignment.target.details?.note && (
+                      <div className="flex-1 min-w-[200px]">
+                        <p className="font-bold uppercase text-[#FF8FA3] tracking-widest">Note</p>
+                        <p className="text-[#5D4037] mt-1 whitespace-pre-wrap">
+                          {assignment.target.details.note}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">
@@ -114,7 +296,7 @@ export default function PurchaseSubmitPage() {
 
             <button
               type="submit"
-              disabled={status === "loading"}
+              disabled={status === "loading" || assignmentState !== "ready"}
               className="btn-primary w-full py-4 rounded-full font-bold text-lg shadow-lg hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed transform active:scale-95 transition-all"
             >
               {status === "loading" ? (
