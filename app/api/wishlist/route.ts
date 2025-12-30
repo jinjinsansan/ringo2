@@ -5,6 +5,7 @@ type WishlistPayload = {
   wishlistUrl?: string;
   primaryItemName?: string;
   primaryItemUrl?: string;
+  itemPrice?: number | null;
   budgetMin?: number | null;
   budgetMax?: number | null;
   note?: string;
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
       .single(),
     adminClient
       .from("wishlists")
-      .select("primary_item_name, primary_item_url, budget_min, budget_max, note")
+      .select("primary_item_name, primary_item_url, budget_min, budget_max, note, item_price_jpy")
       .eq("user_id", userId)
       .maybeSingle(),
   ]);
@@ -91,6 +92,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "商品のURLが正しくありません" }, { status: 400 });
   }
 
+  const price = typeof body.itemPrice === "number" ? Math.round(body.itemPrice) : null;
+  if (!price || price < 3000 || price > 4000) {
+    return NextResponse.json({ error: "商品の価格は3,000〜4,000円の間で入力してください" }, { status: 400 });
+  }
+
   const payload = {
     primary_item_name: primaryItemName,
     primary_item_url: body.primaryItemUrl?.trim() || null,
@@ -98,6 +104,7 @@ export async function POST(req: NextRequest) {
     budget_max: toBudgetValue(body.budgetMax ?? null),
     note: body.note?.trim() || null,
     user_id: auth.userId,
+    item_price_jpy: price,
   };
 
   const userResult = await adminClient

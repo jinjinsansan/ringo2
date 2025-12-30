@@ -34,6 +34,7 @@ type AssignmentDetail = {
       budget_min: number | null;
       budget_max: number | null;
       note: string | null;
+      item_price_jpy: number;
     } | null;
   };
 };
@@ -49,7 +50,7 @@ async function fetchAssignmentDetail(adminClient: SupabaseClient, row: Assignmen
       .maybeSingle(),
     adminClient
       .from("wishlists")
-      .select("primary_item_name, primary_item_url, budget_min, budget_max, note")
+      .select("primary_item_name, primary_item_url, budget_min, budget_max, note, item_price_jpy")
       .eq("user_id", row.target_user_id)
       .maybeSingle(),
   ]);
@@ -96,7 +97,7 @@ async function pickNextTarget(adminClient: SupabaseClient, userId: string) {
   const [candidatesResult, takenResult] = await Promise.all([
     adminClient
       .from("users")
-      .select("id, wishlist_url, status")
+      .select("id, wishlist_url, status, wishlists!inner(item_price_jpy)")
       .in("status", TARGETABLE_USER_STATUSES)
       .not("wishlist_url", "is", null)
       .neq("id", userId),

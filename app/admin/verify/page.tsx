@@ -9,7 +9,14 @@ type Purchase = {
   status: string;
   created_at: string;
   notes: string | null;
-  users?: { status: string } | null;
+  users?: {
+    status: string;
+    wishlist_url?: string | null;
+    wishlists?: {
+      item_price_jpy: number;
+      primary_item_name: string | null;
+    } | null;
+  } | null;
 };
 
 export default function AdminVerifyPage() {
@@ -105,6 +112,21 @@ export default function AdminVerifyPage() {
                 <div>User ID: {p.user_id}</div>
                 <div>ステータス: {p.status}</div>
                 {p.users?.status && <div>ユーザー現在ステータス: {p.users.status}</div>}
+                {p.users?.wishlists?.primary_item_name && (
+                  <div>
+                    希望商品: {p.users.wishlists.primary_item_name} ({p.users.wishlists.item_price_jpy.toLocaleString()}円)
+                  </div>
+                )}
+                {p.users?.wishlist_url && (
+                  <a
+                    className="text-[#a34a5d] underline"
+                    href={p.users.wishlist_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    欲しいものリストを確認
+                  </a>
+                )}
                 {p.screenshot_url && (
                   <a
                     className="text-[#a34a5d] underline"

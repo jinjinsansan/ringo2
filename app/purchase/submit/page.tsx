@@ -19,14 +19,13 @@ type Assignment = {
       budget_min: number | null;
       budget_max: number | null;
       note: string | null;
+      item_price_jpy: number;
     } | null;
   };
 };
 
 export default function PurchaseSubmitPage() {
   const { refresh } = useUser();
-  const formatBudget = (value?: number | null) =>
-    typeof value === "number" ? value.toLocaleString() : "-";
   const [screenshotUrl, setScreenshotUrl] = useState("");
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -242,12 +241,13 @@ export default function PurchaseSubmitPage() {
                 <div className="bg-white/80 border border-white rounded-2xl px-4 py-3 text-xs text-[#5D4037]/80">
                   <div className="flex flex-wrap gap-4">
                     <div>
-                      <p className="font-bold uppercase text-[#FF8FA3] tracking-widest">Budget</p>
-                  <p className="text-base text-[#5D4037] mt-1">
-                    {assignment.target.details?.budget_min != null || assignment.target.details?.budget_max != null
-                      ? `${formatBudget(assignment.target.details?.budget_min)} 〜 ${formatBudget(assignment.target.details?.budget_max)} 円`
-                      : "指定なし"}
-                  </p>
+                      <p className="font-bold uppercase text-[#FF8FA3] tracking-widest">Price</p>
+                      <p className="text-base text-[#5D4037] mt-1">
+                        {assignment.target.details ? `${assignment.target.details.item_price_jpy.toLocaleString()} 円` : "-"}
+                      </p>
+                      <p className="text-[11px] text-[#5D4037]/60 mt-1">
+                        ※決済前にAmazonの商品ページでも価格が3,000〜4,000円か必ず確認してください。
+                      </p>
                     </div>
                     {assignment.target.details?.note && (
                       <div className="flex-1 min-w-[200px]">
@@ -262,6 +262,11 @@ export default function PurchaseSubmitPage() {
               </div>
             )}
           </section>
+
+          <div className="rounded-2xl border border-[#FFD1DC] bg-[#FFF5F7] px-5 py-4 text-xs text-[#5D4037]/80">
+            りんご会のプレゼントは必ず <span className="font-bold text-[#5D4037]">3,000〜4,000円</span> に収まる商品を購入してください。
+            Amazonの決済画面でも価格を再確認し、ルール外の場合は購入せず運営へ連絡をお願いします。
+          </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">

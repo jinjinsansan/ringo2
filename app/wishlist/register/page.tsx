@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FlowGuard } from "@/components/FlowGuard";
 import { supabase } from "@/lib/supabaseClient";
@@ -10,8 +10,7 @@ type FormState = {
   wishlistUrl: string;
   primaryItemName: string;
   primaryItemUrl: string;
-  budgetMin: string;
-  budgetMax: string;
+  itemPrice: string;
   note: string;
 };
 
@@ -21,8 +20,7 @@ const initialForm: FormState = {
   wishlistUrl: "",
   primaryItemName: "",
   primaryItemUrl: "",
-  budgetMin: "",
-  budgetMax: "",
+  itemPrice: "",
   note: "",
 };
 
@@ -34,13 +32,6 @@ export default function WishlistRegisterPage() {
   const [state, setState] = useState<RequestState>("idle");
   const [message, setMessage] = useState("ランキングで良く売れるのは、3,000〜5,000円の実用品です。リンク先と金額感を明記しておくと親切です。 ");
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
-
-  const budgetLabel = useMemo(() => {
-    if (!form.budgetMin && !form.budgetMax) return "指定なし";
-    const min = form.budgetMin ? `${Number(form.budgetMin).toLocaleString()}円` : "―";
-    const max = form.budgetMax ? `${Number(form.budgetMax).toLocaleString()}円` : "―";
-    return `${min} 〜 ${max}`;
-  }, [form.budgetMin, form.budgetMax]);
 
   useEffect(() => {
     const fetchExisting = async () => {
@@ -68,8 +59,7 @@ export default function WishlistRegisterPage() {
           wishlistUrl: data.wishlistUrl ?? "",
           primaryItemName: data.wishlist?.primary_item_name ?? "",
           primaryItemUrl: data.wishlist?.primary_item_url ?? "",
-          budgetMin: data.wishlist?.budget_min != null ? String(data.wishlist.budget_min) : "",
-          budgetMax: data.wishlist?.budget_max != null ? String(data.wishlist.budget_max) : "",
+          itemPrice: data.wishlist?.item_price_jpy != null ? String(data.wishlist.item_price_jpy) : "",
           note: data.wishlist?.note ?? "",
         }));
         setMessage("登録済みの情報を更新することもできます。");
@@ -86,13 +76,6 @@ export default function WishlistRegisterPage() {
 
   const updateForm = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const parseBudget = (value: string) => {
-    if (!value) return null;
-    const num = Number(value);
-    if (Number.isNaN(num) || num < 0) return null;
-    return num;
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -112,6 +95,19 @@ export default function WishlistRegisterPage() {
       return;
     }
 
+    const priceNumber = Number(form.itemPrice);
+    if (!form.itemPrice.trim() || Number.isNaN(priceNumber)) {
+      setState("error");
+      setErrorDetail("商品の価格を入力してください");
+      return;
+    }
+
+    if (priceNumber < 3000 || priceNumber > 4000) {
+      setState("error");
+      setErrorDetail("価格は3,000〜4,000円の間で入力してください");
+      return;
+    }
+
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -126,8 +122,7 @@ export default function WishlistRegisterPage() {
       wishlistUrl: form.wishlistUrl.trim(),
       primaryItemName: form.primaryItemName.trim(),
       primaryItemUrl: form.primaryItemUrl.trim() || undefined,
-      budgetMin: parseBudget(form.budgetMin),
-      budgetMax: parseBudget(form.budgetMax),
+      itemPrice: priceNumber,
       note: form.note.trim() || undefined,
     };
 
@@ -239,33 +234,19 @@ export default function WishlistRegisterPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-bold text-[#5D4037] ml-1">希望価格帯（下限）</label>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      value={form.budgetMin}
-                      onChange={(e) => updateForm("budgetMin", e.target.value)}
-                      placeholder="3000"
-                      className="w-full rounded-2xl border-2 border-[#FFD1DC] bg-white/70 px-4 py-3 text-[#5D4037] placeholder-[#5D4037]/40 outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-bold text-[#5D4037] ml-1">希望価格帯（上限）</label>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      value={form.budgetMax}
-                      onChange={(e) => updateForm("budgetMax", e.target.value)}
-                      placeholder="5000"
-                      className="w-full rounded-2xl border-2 border-[#FFD1DC] bg-white/70 px-4 py-3 text-[#5D4037] placeholder-[#5D4037]/40 outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
-                    />
-                  </div>
-                </div>
-
-                <div className="text-xs text-[#5D4037]/60 bg-[#FFF5F7] border border-[#FFD1DC] rounded-2xl px-4 py-3">
-                  目安: <strong>{budgetLabel}</strong>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-[#5D4037] ml-1">商品の価格（必須 / 3,000〜4,000円）</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={form.itemPrice}
+                    onChange={(e) => updateForm("itemPrice", e.target.value)}
+                    placeholder="例: 3500"
+                    className="w-full rounded-2xl border-2 border-[#FFD1DC] bg-white/70 px-4 py-3 text-[#5D4037] placeholder-[#5D4037]/40 outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
+                  />
+                  <p className="text-xs text-[#5D4037]/60">
+                    3,000円未満 / 4,000円超の商品は登録できません。Amazonの価格を確認してから入力してください。
+                  </p>
                 </div>
 
                 <div className="space-y-2">
