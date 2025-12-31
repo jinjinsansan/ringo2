@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 
-type Params = {
-  params: {
-    id: string;
-  };
-};
-
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const auth = await authenticateRequest(req);
   if ("error" in auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
