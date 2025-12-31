@@ -149,7 +149,7 @@ export default function WishlistRegisterPage() {
     setMessage(
       nextStatus === "READY_TO_DRAW"
         ? "保存しました！次はいよいよ抽選ステップへ進めます。"
-        : "保存しました！承認完了後に抽選ステップへ進めます。"
+        : "保存しました！現在購入証明のスクリーンショットを管理者が確認しています。承認完了後に抽選ステップへ進めます。"
     );
     await refresh();
 
