@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useUser } from "@/context/UserContext";
 
 const navLinks = [
   { label: "利用規約", href: "/tos" },
@@ -12,6 +13,11 @@ const navLinks = [
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { sessionEmail } = useUser();
+
+  const isAdmin = sessionEmail === "goldbenchan@gmail.com";
+  const adminNavLink = { label: "管理者パネル", href: "/admin/verify" };
+  const navItems = isAdmin ? [...navLinks, adminNavLink] : navLinks;
 
   return (
     <header className="fixed top-0 z-50 w-full transition-all duration-300 bg-white/70 backdrop-blur-md shadow-sm border-b border-white/50">
@@ -23,7 +29,7 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm font-medium md:flex">
-          {navLinks.map((item) => (
+          {navItems.map((item) => (
             <Link 
               key={item.label} 
               href={item.href} 
@@ -64,7 +70,7 @@ export default function Header() {
       {/* Mobile Menu */}
       {menuOpen && (
         <div className="absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-t border-white/20 p-6 flex flex-col gap-6 shadow-xl md:hidden animate-fade-up">
-          {navLinks.map((item) => (
+          {navItems.map((item) => (
             <Link 
               key={item.label} 
               href={item.href} 

@@ -21,6 +21,7 @@ type UserContextValue = {
   user: UserRecord | null;
   loading: boolean;
   refresh: () => Promise<void>;
+  sessionEmail: string | null;
 };
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
@@ -28,6 +29,7 @@ const UserContext = createContext<UserContextValue | undefined>(undefined);
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
 
   const fetchUser = async () => {
     setLoading(true);
@@ -37,9 +39,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     if (!session?.user) {
       setUser(null);
+      setSessionEmail(null);
       setLoading(false);
       return;
     }
+
+    setSessionEmail(session.user.email ?? null);
 
     const loadRecord = async () => {
       const { data, error } = await supabase
@@ -93,6 +98,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         user,
         loading,
         refresh: fetchUser,
+        sessionEmail,
       }}
     >
       {children}
