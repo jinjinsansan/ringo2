@@ -14,7 +14,12 @@ export async function GET(req: NextRequest) {
 
   const userId = auth.userId;
 
-  const [appleRes, purchaseRes, assignmentsRes, selfRes, referralRes, winCountRes, purchaseCountRes] = await Promise.all([
+  let supportsReferral = true;
+  let referralCode: string | null = null;
+  let referralCount = 0;
+  let referralFriends: { id: string; status: string; joinedAt: string; wishlistUrl: string | null }[] = [];
+
+  const [appleRes, purchaseRes, assignmentsRes, selfRes, winCountRes, purchaseCountRes] = await Promise.all([
     adminClient
       .from("apples")
       .select("id, result, reveal_at, created_at")
@@ -35,12 +40,6 @@ export async function GET(req: NextRequest) {
       .limit(5),
     adminClient.from("users").select("referral_code, referral_count").eq("id", userId).single(),
     adminClient
-      .from("users")
-      .select("id, status, created_at, wishlist_url")
-      .eq("referred_by", userId)
-      .order("created_at", { ascending: false })
-      .limit(10),
-    adminClient
       .from("apples")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
@@ -51,8 +50,45 @@ export async function GET(req: NextRequest) {
   if (appleRes.error) return NextResponse.json({ error: appleRes.error.message }, { status: 500 });
   if (purchaseRes.error) return NextResponse.json({ error: purchaseRes.error.message }, { status: 500 });
   if (assignmentsRes.error) return NextResponse.json({ error: assignmentsRes.error.message }, { status: 500 });
-  if (selfRes.error || !selfRes.data) return NextResponse.json({ error: selfRes.error?.message ?? "User not found" }, { status: 500 });
-  if (referralRes.error) return NextResponse.json({ error: referralRes.error.message }, { status: 500 });
+
+  if (selfRes.error) {
+    const message = selfRes.error.message ?? "Failed to load referral data";
+    if (message.includes("referral_code") || message.includes("referral_count")) {
+      supportsReferral = false;
+    } else {
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  } else if (selfRes.data) {
+    referralCode = selfRes.data.referral_code ?? null;
+    referralCount = selfRes.data.referral_count ?? 0;
+  } else {
+    supportsReferral = false;
+  }
+
+  if (supportsReferral) {
+    const referralRes = await adminClient
+      .from("users")
+      .select("id, status, created_at, wishlist_url")
+      .eq("referred_by", userId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (referralRes.error) {
+      const message = referralRes.error.message ?? "Failed to load referrals";
+      if (message.includes("referred_by")) {
+        supportsReferral = false;
+      } else {
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
+    } else {
+      referralFriends = (referralRes.data ?? []).map((friend) => ({
+        id: friend.id,
+        status: friend.status,
+        joinedAt: friend.created_at,
+        wishlistUrl: friend.wishlist_url,
+      }));
+    }
+  }
 
   const assignments = assignmentsRes.data ?? [];
   const targetIds = Array.from(new Set(assignments.map((a) => a.target_user_id).filter(Boolean)));
@@ -70,16 +106,17 @@ export async function GET(req: NextRequest) {
   }
 
   const response = {
-    referral: {
-      code: selfRes.data.referral_code,
-      count: selfRes.data.referral_count ?? 0,
-      friends: (referralRes.data ?? []).map((friend) => ({
-        id: friend.id,
-        status: friend.status,
-        joinedAt: friend.created_at,
-        wishlistUrl: friend.wishlist_url,
-      })),
-    },
+    referral: supportsReferral
+      ? {
+          code: referralCode,
+          count: referralCount,
+          friends: referralFriends,
+        }
+      : {
+          code: null,
+          count: 0,
+          friends: [],
+        },
     appleHistory: appleRes.data ?? [],
     purchaseHistory: purchaseRes.data ?? [],
     giftHistory: assignments.map((assignment) => ({
