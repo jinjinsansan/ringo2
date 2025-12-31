@@ -97,35 +97,100 @@ export default function AdminDashboardPage() {
     });
   }, [data, selectedStatus, search]);
 
+  const quickLinks = [
+    {
+      title: "スクショ承認",
+      description: "submitted の購入証明を確認して承認/却下します",
+      href: "/admin/verify",
+      accent: "bg-[#FFE5EC]",
+      icon: "✅",
+    },
+    {
+      title: "Fulfillment 管理",
+      description: "WAITING_FOR_FULFILLMENT ユーザーへ発送完了を記録",
+      href: "/admin/fulfillment",
+      accent: "bg-[#FFF4CC]",
+      icon: "📦",
+    },
+    {
+      title: "RTP 調整",
+      description: "りんご抽選の出現確率をリアルタイムで調整",
+      href: "/admin/rtp",
+      accent: "bg-[#E3F2FD]",
+      icon: "🎯",
+    },
+    {
+      title: "紹介ランキング",
+      description: "紹介状況とボーナス状況を一覧で確認",
+      href: "/admin/referrals",
+      accent: "bg-[#E8F5E9]",
+      icon: "🤝",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-[#FDF7FA] px-4 py-16 text-[#5C4033]">
-      <div className="mx-auto w-full max-w-6xl space-y-8">
+      <div className="mx-auto w-full max-w-6xl space-y-10">
         <header className="rounded-3xl bg-white/80 px-6 py-8 shadow-lg border border-white">
-          <h1 className="font-heading text-3xl font-bold text-[#FF5C8D]">管理者ダッシュボード</h1>
-          <p className="text-sm text-[#5C4033]/70 mt-1">主要KPIとユーザーフローの状況を確認できます。</p>
-          <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
-            <input
-              type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder="Admin Secret"
-              className="w-full md:w-64 rounded-2xl border border-[#FFC0CB] bg-white/70 px-4 py-2 text-sm outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
-            />
-            <button
-              onClick={fetchData}
-              disabled={!secret || loading}
-              className="w-full md:w-auto rounded-full bg-[#FF8FA3] px-6 py-2 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-60"
-            >
-              {loading ? "読み込み中..." : "最新情報を取得"}
-            </button>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold text-[#B2797B] tracking-[0.3em] uppercase">Admin Control Center</p>
+              <h1 className="font-heading text-3xl font-bold text-[#FF5C8D] mt-2">管理者ダッシュボード</h1>
+              <p className="text-sm text-[#5C4033]/70 mt-1">友達紹介・抽選・フルフィルメントをここから一元管理できます。</p>
+            </div>
+            <div className="rounded-2xl bg-white/70 border border-[#FFD1DC] p-4 flex flex-col gap-3 w-full lg:w-auto">
+              <label className="text-xs font-bold text-[#FF5C8D]" htmlFor="admin-secret">
+                Admin Secret
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  id="admin-secret"
+                  type="password"
+                  value={secret}
+                  onChange={(e) => setSecret(e.target.value)}
+                  placeholder="••••••"
+                  className="w-full rounded-2xl border border-[#FFC0CB] bg-white/70 px-4 py-2 text-sm outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
+                />
+                <button
+                  onClick={fetchData}
+                  disabled={!secret || loading}
+                  className="whitespace-nowrap rounded-2xl bg-[#FF8FA3] px-5 py-2 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-60"
+                >
+                  {loading ? "読込中..." : "最新情報を取得"}
+                </button>
+              </div>
+              <p className="text-[11px] text-[#5C4033]/60">
+                * Supabase ダッシュボードで設定した管理シークレットを入力してください。ブラウザに保存されます。
+              </p>
+              {error && <p className="text-xs text-red-600">{error}</p>}
+              {data && (
+                <p className="text-[10px] text-[#5C4033]/50">最終更新: {new Date(data.generatedAt).toLocaleString()}</p>
+              )}
+            </div>
           </div>
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-          {data && (
-            <p className="mt-3 text-xs text-[#5C4033]/60">最終更新: {new Date(data.generatedAt).toLocaleString()}</p>
-          )}
         </header>
 
-        {data && (
+        <section className="rounded-3xl border border-white bg-white/90 p-6 shadow-md">
+          <h2 className="font-heading text-xl text-[#5C4033] mb-2">運営ショートカット</h2>
+          <p className="text-sm text-[#5C4033]/70 mb-6">日常的に使う管理機能へワンクリックで移動できます。</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {quickLinks.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="group rounded-3xl border border-[#FFE4EC] bg-white/70 p-5 flex items-start gap-4 hover:shadow-lg transition"
+              >
+                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-2xl ${link.accent}`}>{link.icon}</div>
+                <div>
+                  <p className="font-heading text-lg text-[#5C4033] group-hover:text-[#FF5C8D]">{link.title}</p>
+                  <p className="text-sm text-[#5C4033]/70 mt-1">{link.description}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        {data ? (
           <>
             <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <article className="rounded-3xl border border-white bg-white/90 p-6 shadow-md">
@@ -219,6 +284,10 @@ export default function AdminDashboardPage() {
               </div>
             </section>
           </>
+        ) : (
+          <section className="rounded-3xl border border-dashed border-[#FFC0CB] bg-white/70 p-8 text-center text-sm text-[#5C4033]/70">
+            Admin Secret を入力して「最新情報を取得」を押すと KPI とユーザー一覧が表示されます。
+          </section>
         )}
       </div>
     </div>
