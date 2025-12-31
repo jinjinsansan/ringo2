@@ -296,12 +296,13 @@ export default function MyPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 relative overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden bg-[#FFF8FB]">
       {/* Background Decor */}
-      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_10%_10%,rgba(255,209,220,0.5),transparent_50%)] pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(circle_at_90%_90%,rgba(255,253,208,0.5),transparent_50%)] pointer-events-none" />
+      <div className="pointer-events-none absolute top-0 left-0 h-full w-full bg-[radial-gradient(circle_at_10%_10%,rgba(255,209,220,0.45),transparent_50%)]" />
+      <div className="pointer-events-none absolute bottom-0 right-0 h-full w-full bg-[radial-gradient(circle_at_90%_90%,rgba(255,253,208,0.4),transparent_50%)]" />
 
-      <div className="glass-card w-full max-w-lg p-8 md:p-10 rounded-[40px] shadow-2xl relative z-10 animate-fade-up border-2 border-white">
+      <div className="relative z-10 mx-auto w-full max-w-6xl py-16 px-4 md:px-8 lg:px-12">
+        <div className="glass-card w-full rounded-[40px] border-2 border-white/80 p-6 md:p-10 lg:p-12 shadow-2xl">
         <div className="text-center mb-8">
           <h1 className="font-heading text-2xl font-bold text-[#5D4037] mb-1">マイページ</h1>
           <p className="text-[#FF8FA3] font-bold text-sm">Welcome back!</p>
@@ -335,6 +336,12 @@ export default function MyPage() {
              <div className="mt-6 py-3 px-4 bg-[#F5F5F5] rounded-full text-sm font-bold text-[#5D4037]/60">
                {actionText}
              </div>
+           )}
+
+           {currentStatus === "WAITING_FOR_FULFILLMENT" && (
+             <p className="mt-6 rounded-3xl border border-[#FFD1DC] bg-white/80 px-4 py-3 text-sm font-semibold text-[#5D4037]/90">
+               誰かに購入されるまで次のターンには進めません。購入完了のお知らせが届くまで少しお待ちください。
+             </p>
            )}
         </div>
 
@@ -639,6 +646,7 @@ export default function MyPage() {
           </svg>
           ステータスを更新
         </button>
+        </div>
       </div>
     </div>
   );

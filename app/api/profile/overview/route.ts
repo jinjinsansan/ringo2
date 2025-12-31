@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 
@@ -13,6 +14,34 @@ export async function GET(req: NextRequest) {
   }
 
   const userId = auth.userId;
+
+  const assignReferralCode = async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidate = randomBytes(5).toString("hex");
+      const { data, error } = await adminClient
+        .from("users")
+        .update({ referral_code: candidate })
+        .eq("id", userId)
+        .is("referral_code", null)
+        .select("referral_code")
+        .single();
+
+      if (!error && data?.referral_code) {
+        return data.referral_code;
+      }
+
+      if (error) {
+        const message = error.message ?? "";
+        const duplicate = message.includes("duplicate key") || error.code === "23505";
+        if (duplicate) {
+          continue;
+        }
+        throw new Error(message || "Failed to assign referral code");
+      }
+    }
+
+    return null;
+  };
 
   let supportsReferral = true;
   let referralCode: string | null = null;
@@ -87,6 +116,14 @@ export async function GET(req: NextRequest) {
         joinedAt: friend.created_at,
         wishlistUrl: friend.wishlist_url,
       }));
+    }
+  }
+
+  if (supportsReferral && !referralCode) {
+    try {
+      referralCode = await assignReferralCode();
+    } catch {
+      supportsReferral = false;
     }
   }
 
