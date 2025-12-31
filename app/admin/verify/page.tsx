@@ -13,8 +13,9 @@ type Purchase = {
     status: string;
     wishlist_url?: string | null;
     wishlists?: {
-      item_price_jpy: number;
+      item_price_jpy: number | null;
       primary_item_name: string | null;
+      primary_item_url?: string | null;
     } | null;
   } | null;
 };
@@ -114,7 +115,10 @@ export default function AdminVerifyPage() {
                 {p.users?.status && <div>ユーザー現在ステータス: {p.users.status}</div>}
                 {p.users?.wishlists?.primary_item_name && (
                   <div>
-                    希望商品: {p.users.wishlists.primary_item_name} ({p.users.wishlists.item_price_jpy.toLocaleString()}円)
+                    希望商品: {p.users.wishlists.primary_item_name}
+                    {typeof p.users.wishlists.item_price_jpy === "number" && (
+                      <> ({p.users.wishlists.item_price_jpy.toLocaleString()}円)</>
+                    )}
                   </div>
                 )}
                 {p.users?.wishlists?.primary_item_url && (
