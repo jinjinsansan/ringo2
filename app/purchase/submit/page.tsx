@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FlowGuard } from "@/components/FlowGuard";
 import { supabase } from "@/lib/supabaseClient";
 import { useUser } from "@/context/UserContext";
@@ -25,7 +26,8 @@ type Assignment = {
 };
 
 export default function PurchaseSubmitPage() {
-  const { refresh } = useUser();
+  const router = useRouter();
+  const { refresh, user } = useUser();
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -192,16 +194,18 @@ export default function PurchaseSubmitPage() {
     }
 
     await refresh();
+    setAssignment(null);
+    setAssignmentState("ready");
+    setAssignmentError("");
     setStatus("success");
     setMessage("提出しました。承認をお待ちください。");
     setFile(null);
     setUploadPreview(null);
     setNote("");
-    await fetchAssignment();
   };
 
   return (
-    <FlowGuard requiredStatus="READY_TO_PURCHASE" fallback="/">
+    <FlowGuard requiredStatus="READY_TO_PURCHASE" allowedStatus="AWAITING_APPROVAL" fallback="/my-page">
       <div className="min-h-screen flex items-center justify-center py-12 px-4 relative overflow-hidden">
         {/* Background Decor */}
         <div className="absolute top-20 left-10 w-32 h-32 bg-[#FFD1DC] rounded-full mix-blend-multiply filter blur-xl opacity-60 animate-float" />
@@ -315,6 +319,22 @@ export default function PurchaseSubmitPage() {
             Amazonの決済画面でも価格を再確認し、ルール外の場合は購入せず運営へ連絡をお願いします。
           </div>
 
+          {user?.status === "AWAITING_APPROVAL" ? (
+            <div className="rounded-2xl border border-green-200 bg-green-50/70 px-6 py-5 text-[#2E5939] text-sm font-medium">
+              <p className="font-heading text-base text-[#2E5939]">アップロードが完了しました！</p>
+              <p className="mt-2">
+                現在、運営がスクリーンショットを確認しています。<br />
+                通常は数時間以内に承認され、その後「欲しいものリスト登録」ステップに進めます。
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push("/my-page")}
+                className="mt-4 inline-flex items-center justify-center rounded-full border border-[#2E5939]/30 px-4 py-2 text-xs font-bold text-[#2E5939] hover:bg-[#2E5939]/10"
+              >
+                マイページで進捗を確認する
+              </button>
+            </div>
+          ) : (
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <label className="block text-sm font-bold text-[#5D4037] ml-1">
@@ -374,6 +394,7 @@ export default function PurchaseSubmitPage() {
               )}
             </button>
           </form>
+          )}
 
           {message && (
             <div

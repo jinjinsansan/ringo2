@@ -117,6 +117,16 @@ export default function AdminVerifyPage() {
                     希望商品: {p.users.wishlists.primary_item_name} ({p.users.wishlists.item_price_jpy.toLocaleString()}円)
                   </div>
                 )}
+                {p.users?.wishlists?.primary_item_url && (
+                  <a
+                    className="text-[#a34a5d] underline"
+                    href={p.users.wishlists.primary_item_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    商品ページを開く
+                  </a>
+                )}
                 {p.users?.wishlist_url && (
                   <a
                     className="text-[#a34a5d] underline"
@@ -124,7 +134,7 @@ export default function AdminVerifyPage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    欲しいものリストを確認
+                    欲しいものリスト全体を見る
                   </a>
                 )}
                 {p.screenshot_url && (

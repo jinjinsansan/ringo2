@@ -20,6 +20,7 @@ const cta: Record<string, string> = {
   AWAITING_TOS_AGREEMENT: "規約に同意する",
   AWAITING_GUIDE_CHECK: "使い方を見る",
   READY_TO_PURCHASE: "誰かの欲しいものリストを購入する",
+  AWAITING_APPROVAL: "欲しいものリストを登録する",
   READY_TO_REGISTER_WISHLIST: "欲しいものリストを登録する",
   READY_TO_DRAW: "りんごを引く",
   REVEALING: "結果を確認する",
@@ -30,6 +31,7 @@ const links: Record<string, string | null> = {
   AWAITING_TOS_AGREEMENT: "/tos",
   AWAITING_GUIDE_CHECK: "/guide",
   READY_TO_PURCHASE: "/purchase/submit",
+  AWAITING_APPROVAL: "/wishlist/register",
   READY_TO_REGISTER_WISHLIST: "/wishlist/register",
   READY_TO_DRAW: "/draw",
   REVEALING: null,
@@ -61,6 +63,7 @@ export default function MyPage() {
   const icon = useMemo(() => statusIcon[currentStatus] ?? "❓", [currentStatus]);
   const canManageWishlist = useMemo(() => {
     const allowed = new Set([
+      "AWAITING_APPROVAL",
       "READY_TO_REGISTER_WISHLIST",
       "READY_TO_DRAW",
       "REVEALING",
@@ -135,6 +138,22 @@ export default function MyPage() {
            )}
         </div>
 
+        {currentStatus === "AWAITING_APPROVAL" && (
+          <div className="mb-8 rounded-3xl border border-green-100 bg-green-50/60 p-6 text-left text-sm text-[#2E5939] shadow-sm">
+            <p className="text-base font-heading text-[#2E5939]">承認待ちの間に欲しいものリストを準備しましょう</p>
+            <p className="mt-2 leading-relaxed">
+              スクリーンショットは送信済みです。運営の承認が完了したらすぐ抽選に進めるよう、
+              今のうちに「欲しいものリスト登録」を済ませておくとスムーズです。
+            </p>
+            <button
+              onClick={() => router.push("/wishlist/register")}
+              className="mt-4 inline-flex items-center justify-center rounded-full border border-[#2E5939]/20 bg-white/80 px-5 py-2 text-xs font-bold text-[#2E5939] hover:bg-white"
+            >
+              欲しいものリストを登録する →
+            </button>
+          </div>
+        )}
+
         {/* Dashboard Stats (Placeholder for future features) */}
         <div className="grid grid-cols-2 gap-4 mb-8">
            <div className="bg-white/40 p-4 rounded-2xl text-center border border-white">
@@ -157,6 +176,11 @@ export default function MyPage() {
               <p className="text-xs text-[#5D4037]/60 mt-1">
                 登録済みのリストは、いつでもここから確認できます。
               </p>
+              {currentStatus === "AWAITING_APPROVAL" && !user.wishlist_url && (
+                <p className="mt-2 rounded-2xl bg-white/70 px-3 py-2 text-xs text-[#2E5939]/80 border border-green-100">
+                  承認が完了する前に、希望商品のURLと価格を登録しておくと次の抽選がスムーズです。
+                </p>
+              )}
             </div>
             {canManageWishlist && (
               <button
@@ -179,7 +203,10 @@ export default function MyPage() {
                 {user.wishlist_url}
               </a>
             ) : (
-              <span>まだ欲しいものリストが登録されていません。</span>
+              <span>
+                まだ欲しいものリストが登録されていません。
+                {currentStatus === "AWAITING_APPROVAL" && " 今のうちに登録しておきましょう。"}
+              </span>
             )}
           </div>
         </div>

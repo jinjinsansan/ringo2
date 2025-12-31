@@ -37,7 +37,10 @@ export async function GET(req: Request) {
 
   const { data, error } = await adminClient
     .from("purchases")
-    .select("id, user_id, screenshot_url, status, created_at, notes, users(status, wishlist_url, wishlists(item_price_jpy, primary_item_name))")
+    .select(
+      `id, user_id, screenshot_url, status, created_at, notes,
+      users(status, wishlist_url, wishlists(item_price_jpy, primary_item_name, primary_item_url))`
+    )
     .eq("status", "submitted")
     .order("created_at", { ascending: true });
 

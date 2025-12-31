@@ -151,6 +151,7 @@ export default function WishlistRegisterPage() {
   return (
     <FlowGuard
       requiredStatus={[
+        "AWAITING_APPROVAL",
         "READY_TO_REGISTER_WISHLIST",
         "READY_TO_DRAW",
         "REVEALING",

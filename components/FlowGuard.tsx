@@ -6,6 +6,7 @@ import { useUser } from "@/context/UserContext";
 
 type Props = {
   requiredStatus: string | string[];
+  allowedStatus?: string | string[];
   fallback?: string; // redirect destination when not matched
   children: React.ReactNode;
 };
@@ -22,24 +23,26 @@ const order = [
   "CYCLE_COMPLETE",
 ];
 
-function normalizeRequired(requiredStatus: string | string[]) {
-  return Array.isArray(requiredStatus) ? requiredStatus : [requiredStatus];
+function normalizeRequired(status?: string | string[]) {
+  if (!status) return [];
+  return Array.isArray(status) ? status : [status];
 }
 
-function shouldRedirect(current?: string | null, requiredStatus?: string | string[]) {
-  if (!current || !requiredStatus) return true;
-  const allowed = normalizeRequired(requiredStatus);
-  return !allowed.includes(current);
+function isAllowedStatus(current?: string | null, requiredStatus?: string | string[], allowedStatus?: string | string[]) {
+  if (!current) return false;
+  const allowedStatuses = new Set<string>([...normalizeRequired(requiredStatus), ...normalizeRequired(allowedStatus)]);
+  if (allowedStatuses.size === 0) return false;
+  return allowedStatuses.has(current);
 }
 
-export function FlowGuard({ requiredStatus, fallback = "/", children }: Props) {
+export function FlowGuard({ requiredStatus, allowedStatus, fallback = "/", children }: Props) {
   const { user, loading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
 
-    if (shouldRedirect(user?.status, requiredStatus)) {
+    if (!isAllowedStatus(user?.status, requiredStatus, allowedStatus)) {
       // If the user is earlier in the flow, send them to the closest previous step
       const currentIndex = user ? order.indexOf(user.status) : -1;
       const requiredIndices = normalizeRequired(requiredStatus)
@@ -62,7 +65,7 @@ export function FlowGuard({ requiredStatus, fallback = "/", children }: Props) {
 
       router.replace(fallback);
     }
-  }, [loading, user, requiredStatus, fallback, router]);
+  }, [loading, user, requiredStatus, allowedStatus, fallback, router]);
 
   if (loading) {
     return (
@@ -72,7 +75,7 @@ export function FlowGuard({ requiredStatus, fallback = "/", children }: Props) {
     );
   }
 
-  if (shouldRedirect(user?.status, requiredStatus)) {
+  if (!isAllowedStatus(user?.status, requiredStatus, allowedStatus)) {
     return null;
   }
 
