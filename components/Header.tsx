@@ -8,19 +8,15 @@ const navLinks = [
   { label: "利用規約", href: "/tos" },
   { label: "プライバシーポリシー", href: "/privacy" },
   { label: "使い方", href: "/guide" },
-  { label: "お問い合わせ", href: "#contact" }, // Assuming contact is an anchor on home or a separate page, for now keeping as hash
+  { label: "お問い合わせ", href: "#contact" },
 ];
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { sessionEmail } = useUser();
 
-  const isAdmin = sessionEmail === "goldbenchan@gmail.com" || sessionEmail === "goldbenchan@gamil.com";
-  const adminNavLinks = [
-    { label: "管理者承認", href: "/admin/verify" },
-    { label: "Fulfillment", href: "/admin/fulfillment" },
-  ];
-  const navItems = isAdmin ? [...navLinks, ...adminNavLinks] : navLinks;
+  const isAdmin = sessionEmail === "goldbenchan@gmail.com";
+  const navItems = isAdmin ? [...navLinks, { label: "管理者パネル", href: "/admin" }] : navLinks;
 
   return (
     <header className="fixed top-0 z-50 w-full transition-all duration-300 bg-white/70 backdrop-blur-md shadow-sm border-b border-white/50">

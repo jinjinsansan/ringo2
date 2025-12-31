@@ -1,35 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 import { isAdminBypassEmail } from "@/lib/adminBypass";
+import { loadAppleWeights, DEFAULT_APPLE_WEIGHTS, type AppleWeights } from "@/lib/rtp";
 
 type Result = "bronze" | "silver" | "gold" | "red" | "poison";
 
-type WeightMap = Record<Result, number>;
-
-const baseWeights: WeightMap = {
-  poison: 50,
-  bronze: 35,
-  silver: 10,
-  gold: 4.9,
-  red: 0.1,
-};
-
-function getPersonalWeights(referralCount: number | null | undefined): WeightMap {
+function getPersonalWeights(base: AppleWeights, referralCount: number | null | undefined): AppleWeights {
   const count = typeof referralCount === "number" && referralCount > 0 ? referralCount : 0;
-  if (!count) return { ...baseWeights };
+  if (!count) return { ...base };
 
   const reduction = Math.min(20, count * 1.5);
   const redistributed = reduction;
   return {
-    poison: Math.max(15, baseWeights.poison - reduction),
-    bronze: baseWeights.bronze + redistributed * 0.5,
-    silver: baseWeights.silver + redistributed * 0.25,
-    gold: baseWeights.gold + redistributed * 0.2,
-    red: baseWeights.red + redistributed * 0.05,
+    poison: Math.max(15, base.poison - reduction),
+    bronze: base.bronze + redistributed * 0.5,
+    silver: base.silver + redistributed * 0.25,
+    gold: base.gold + redistributed * 0.2,
+    red: base.red + redistributed * 0.05,
   };
 }
 
-function pickResult(weightMap: WeightMap): Result {
+function pickResult(weightMap: AppleWeights): Result {
   const entries = Object.entries(weightMap) as [Result, number][];
   const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
   const r = Math.random() * total;
@@ -70,9 +61,11 @@ export async function POST(req: NextRequest) {
 
   const referralCount = typeof userRecord.referral_count === "number" ? userRecord.referral_count : 0;
 
+  const baseWeights = await loadAppleWeights(adminClient);
+
   const now = Date.now();
   const revealAt = new Date(now + 60 * 60 * 1000).toISOString();
-  const result = pickResult(getPersonalWeights(referralCount));
+  const result = pickResult(getPersonalWeights(baseWeights ?? DEFAULT_APPLE_WEIGHTS, referralCount));
 
   const { data: apple, error: appleError } = await adminClient
     .from("apples")
