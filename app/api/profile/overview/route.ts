@@ -43,7 +43,8 @@ export async function GET(req: NextRequest) {
     return null;
   };
 
-  let supportsReferral = true;
+  let supportsReferralCode = true;
+  let supportsReferralFriends = true;
   let referralCode: string | null = null;
   let referralCount = 0;
   let referralFriends: { id: string; status: string; joinedAt: string; wishlistUrl: string | null }[] = [];
@@ -83,7 +84,7 @@ export async function GET(req: NextRequest) {
   if (selfRes.error) {
     const message = selfRes.error.message ?? "Failed to load referral data";
     if (message.includes("referral_code") || message.includes("referral_count")) {
-      supportsReferral = false;
+      supportsReferralCode = false;
     } else {
       return NextResponse.json({ error: message }, { status: 500 });
     }
@@ -91,10 +92,10 @@ export async function GET(req: NextRequest) {
     referralCode = selfRes.data.referral_code ?? null;
     referralCount = selfRes.data.referral_count ?? 0;
   } else {
-    supportsReferral = false;
+    supportsReferralCode = false;
   }
 
-  if (supportsReferral) {
+  if (supportsReferralCode) {
     const referralRes = await adminClient
       .from("users")
       .select("id, status, created_at, wishlist_url")
@@ -105,7 +106,7 @@ export async function GET(req: NextRequest) {
     if (referralRes.error) {
       const message = referralRes.error.message ?? "Failed to load referrals";
       if (message.includes("referred_by")) {
-        supportsReferral = false;
+        supportsReferralFriends = false;
       } else {
         return NextResponse.json({ error: message }, { status: 500 });
       }
@@ -119,11 +120,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (supportsReferral && !referralCode) {
+  if (supportsReferralCode && !referralCode) {
     try {
       referralCode = await assignReferralCode();
     } catch {
-      supportsReferral = false;
+      supportsReferralCode = false;
     }
   }
 
@@ -143,17 +144,11 @@ export async function GET(req: NextRequest) {
   }
 
   const response = {
-    referral: supportsReferral
-      ? {
-          code: referralCode,
-          count: referralCount,
-          friends: referralFriends,
-        }
-      : {
-          code: null,
-          count: 0,
-          friends: [],
-        },
+    referral: {
+      code: supportsReferralCode ? referralCode : null,
+      count: supportsReferralCode ? referralCount : 0,
+      friends: supportsReferralFriends ? referralFriends : [],
+    },
     appleHistory: appleRes.data ?? [],
     purchaseHistory: purchaseRes.data ?? [],
     giftHistory: assignments.map((assignment) => ({
