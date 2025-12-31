@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
+import { supabase } from "@/lib/supabaseClient";
 
 const statusLabel: Record<string, string> = {
   AWAITING_TOS_AGREEMENT: "利用規約の同意が必要です",
@@ -54,11 +55,12 @@ const statusIcon: Record<string, string> = {
 export default function MyPage() {
   const { user, loading, refresh } = useUser();
   const router = useRouter();
+  const [latestAppleId, setLatestAppleId] = useState<string | null>(null);
 
   const currentStatus = user?.status ?? "";
   const label = useMemo(() => statusLabel[currentStatus] ?? "状態を取得できません", [currentStatus]);
   const actionText = useMemo(() => cta[currentStatus] ?? "", [currentStatus]);
-  const link = useMemo(() => links[currentStatus] ?? null, [currentStatus]);
+  const baseLink = useMemo(() => links[currentStatus] ?? null, [currentStatus]);
   const icon = useMemo(() => statusIcon[currentStatus] ?? "❓", [currentStatus]);
   const canManageWishlist = useMemo(() => {
     const allowed = new Set([
@@ -70,6 +72,46 @@ export default function MyPage() {
       "CYCLE_COMPLETE",
     ]);
     return allowed.has(currentStatus);
+  }, [currentStatus]);
+
+  const revealLink = useMemo(() => {
+    if (currentStatus === "REVEALING" && latestAppleId) {
+      return `/reveal/${latestAppleId}`;
+    }
+    return baseLink;
+  }, [currentStatus, latestAppleId, baseLink]);
+
+  useEffect(() => {
+    if (currentStatus !== "REVEALING") {
+      queueMicrotask(() => setLatestAppleId(null));
+      return;
+    }
+
+    let active = true;
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user) {
+        return;
+      }
+
+      const { data } = await supabase
+        .from("apples")
+        .select("id, reveal_at")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (active) {
+        setLatestAppleId(data?.id ?? null);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
   }, [currentStatus]);
 
   if (loading) {
@@ -121,16 +163,21 @@ export default function MyPage() {
              <div className="text-lg font-bold text-[#5D4037]">{label}</div>
            </div>
 
-           {link && actionText && (
+           {revealLink && actionText && (
              <button
-               onClick={() => router.push(link)}
-               className="btn-primary mt-6 w-full py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all"
+               onClick={() => router.push(revealLink)}
+               disabled={currentStatus === "REVEALING" && !latestAppleId}
+               className={`btn-primary mt-6 w-full py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all ${currentStatus === "REVEALING" && !latestAppleId ? "opacity-60 cursor-not-allowed" : ""}`}
              >
-               {actionText} <span className="ml-1">→</span>
+               {currentStatus === "REVEALING" && !latestAppleId ? "結果ページを準備中..." : (
+                 <>
+                   {actionText} <span className="ml-1">→</span>
+                 </>
+               )}
              </button>
            )}
            
-           {!link && actionText && (
+           {!revealLink && actionText && (
              <div className="mt-6 py-3 px-4 bg-[#F5F5F5] rounded-full text-sm font-bold text-[#5D4037]/60">
                {actionText}
              </div>
