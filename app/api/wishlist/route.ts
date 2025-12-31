@@ -13,6 +13,7 @@ type WishlistPayload = {
 };
 
 const URL_PATTERN = /^https?:\/\//i;
+const EDITABLE_STATUSES = new Set(["AWAITING_APPROVAL", "READY_TO_REGISTER_WISHLIST", "READY_TO_DRAW"]);
 
 const toBudgetValue = (value: unknown) => {
   if (typeof value !== "number") return null;
@@ -72,6 +73,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Service role key is not configured" }, { status: 500 });
   }
 
+  const bypass = isAdminBypassEmail(auth.email);
+
   let body: WishlistPayload;
   try {
     body = await req.json();
@@ -118,6 +121,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "User record not found" }, { status: 404 });
   }
 
+  if (!bypass && !EDITABLE_STATUSES.has(userResult.data.status)) {
+    return NextResponse.json({ error: "現在は欲しいものリストを更新できません" }, { status: 403 });
+  }
+
   const { error: wishlistError } = await adminClient
     .from("wishlists")
     .upsert(payload, { onConflict: "user_id" });
@@ -130,7 +137,6 @@ export async function POST(req: NextRequest) {
     wishlist_url: wishlistUrl,
   };
 
-  const bypass = isAdminBypassEmail(auth.email);
   const nextStatus = bypass
     ? "READY_TO_DRAW"
     : userResult.data.status === "READY_TO_REGISTER_WISHLIST"

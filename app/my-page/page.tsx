@@ -108,14 +108,7 @@ export default function MyPage() {
   const baseLink = useMemo(() => links[currentStatus] ?? null, [currentStatus]);
   const icon = useMemo(() => statusIcon[currentStatus] ?? "❓", [currentStatus]);
   const canManageWishlist = useMemo(() => {
-    const allowed = new Set([
-      "AWAITING_APPROVAL",
-      "READY_TO_REGISTER_WISHLIST",
-      "READY_TO_DRAW",
-      "REVEALING",
-      "WAITING_FOR_FULFILLMENT",
-      "CYCLE_COMPLETE",
-    ]);
+    const allowed = new Set(["AWAITING_APPROVAL", "READY_TO_REGISTER_WISHLIST", "READY_TO_DRAW"]);
     return allowed.has(currentStatus);
   }, [currentStatus]);
 
@@ -434,6 +427,11 @@ export default function MyPage() {
               <p className="text-xs text-[#5D4037]/60 mt-1">
                 登録済みのリストは、いつでもここから確認できます。
               </p>
+              {!canManageWishlist && user.wishlist_url && (
+                <p className="mt-2 rounded-2xl bg-white/60 px-3 py-2 text-xs text-[#B45364] border border-[#FFD1DC]">
+                  現在はマッチング処理中のため編集できません。次のサイクル準備段階までお待ちください。
+                </p>
+              )}
               {currentStatus === "AWAITING_APPROVAL" && !user.wishlist_url && (
                 <p className="mt-2 rounded-2xl bg-white/70 px-3 py-2 text-xs text-[#2E5939]/80 border border-green-100">
                   承認が完了する前に、希望商品のURLと価格を登録しておくと次の抽選がスムーズです。

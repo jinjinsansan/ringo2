@@ -164,9 +164,6 @@ export default function WishlistRegisterPage() {
         "AWAITING_APPROVAL",
         "READY_TO_REGISTER_WISHLIST",
         "READY_TO_DRAW",
-        "REVEALING",
-        "WAITING_FOR_FULFILLMENT",
-        "CYCLE_COMPLETE",
       ]}
       fallback="/my-page"
     >
