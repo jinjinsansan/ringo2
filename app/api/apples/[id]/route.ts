@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function GET(req: NextRequest, context: RouteContext) {
   const auth = await authenticateRequest(req);
   if ("error" in auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -12,7 +16,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: "Service role key is not configured" }, { status: 500 });
   }
 
-  const { id } = params;
+  const { id } = await context.params;
   if (!id) {
     return NextResponse.json({ error: "Apple ID is required" }, { status: 400 });
   }
