@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useAdminSecret } from "@/hooks/useAdminSecret";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type WeightMap = {
   poison: number;
@@ -43,24 +43,29 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function AdminDashboardPage() {
-  const { secret, setSecret } = useAdminSecret();
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [search, setSearch] = useState("");
 
-  const fetchData = async () => {
-    if (!secret) {
-      setError("Admin Secretを入力してください");
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setError("管理者としてログインしてください");
+      setData(null);
+      setLoading(false);
       return;
     }
-    setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/dashboard", {
         headers: {
-          "x-admin-secret": secret,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
       const body = await res.json();
@@ -76,14 +81,11 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (secret) {
-      fetchData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void fetchData();
+  }, [fetchData]);
 
   const filteredUsers = useMemo(() => {
     if (!data) return [];
@@ -139,29 +141,17 @@ export default function AdminDashboardPage() {
               <p className="text-sm text-[#5C4033]/70 mt-1">友達紹介・抽選・フルフィルメントをここから一元管理できます。</p>
             </div>
             <div className="rounded-2xl bg-white/70 border border-[#FFD1DC] p-4 flex flex-col gap-3 w-full lg:w-auto">
-              <label className="text-xs font-bold text-[#FF5C8D]" htmlFor="admin-secret">
-                Admin Secret
-              </label>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <input
-                  id="admin-secret"
-                  type="password"
-                  value={secret}
-                  onChange={(e) => setSecret(e.target.value)}
-                  placeholder="••••••"
-                  className="w-full rounded-2xl border border-[#FFC0CB] bg-white/70 px-4 py-2 text-sm outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
-                />
-                <button
-                  onClick={fetchData}
-                  disabled={!secret || loading}
-                  className="whitespace-nowrap rounded-2xl bg-[#FF8FA3] px-5 py-2 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-60"
-                >
-                  {loading ? "読込中..." : "最新情報を取得"}
-                </button>
-              </div>
-              <p className="text-[11px] text-[#5C4033]/60">
-                * Supabase ダッシュボードで設定した管理シークレットを入力してください。ブラウザに保存されます。
+              <p className="text-xs font-semibold text-[#FF5C8D] uppercase tracking-[0.3em]">STATUS</p>
+              <p className="text-sm text-[#5C4033]/80">
+                管理者アカウントでログインすると自動的にKPIが読み込まれます。
               </p>
+              <button
+                onClick={() => void fetchData()}
+                disabled={loading}
+                className="rounded-2xl bg-[#FF8FA3] px-5 py-2 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-60"
+              >
+                {loading ? "読込中..." : "最新情報を更新"}
+              </button>
               {error && <p className="text-xs text-red-600">{error}</p>}
               {data && (
                 <p className="text-[10px] text-[#5C4033]/50">最終更新: {new Date(data.generatedAt).toLocaleString()}</p>
@@ -286,7 +276,7 @@ export default function AdminDashboardPage() {
           </>
         ) : (
           <section className="rounded-3xl border border-dashed border-[#FFC0CB] bg-white/70 p-8 text-center text-sm text-[#5C4033]/70">
-            Admin Secret を入力して「最新情報を取得」を押すと KPI とユーザー一覧が表示されます。
+            管理者アカウントでログイン後、「最新情報を更新」でKPIとユーザー一覧が表示されます。
           </section>
         )}
       </div>

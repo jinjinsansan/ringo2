@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminClient } from "@/lib/serverSupabase";
+import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 import { fetchAuthUserMap } from "@/lib/adminUsers";
 import { loadAppleWeights, computeRtpPercentage } from "@/lib/rtp";
+import { isAdminBypassEmail } from "@/lib/adminBypass";
 
 const STATUS_ORDER = [
   "AWAITING_TOS_AGREEMENT",
@@ -15,15 +16,14 @@ const STATUS_ORDER = [
   "CYCLE_COMPLETE",
 ];
 
-function isAuthorized(req: NextRequest) {
-  const adminSecret = process.env.ADMIN_SECRET;
-  const headerSecret = req.headers.get("x-admin-secret");
-  return Boolean(adminSecret && headerSecret && adminSecret === headerSecret);
-}
-
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
+  const auth = await authenticateRequest(req);
+  if ("error" in auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isAdminBypassEmail(auth.email)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const adminClient = getAdminClient();
