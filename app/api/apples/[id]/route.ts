@@ -5,6 +5,16 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+type ResultLabel = "bronze" | "silver" | "gold" | "red" | "poison";
+
+const ticketRewards: Record<ResultLabel, number> = {
+  bronze: 0,
+  silver: 2,
+  gold: 3,
+  red: 5,
+  poison: 0,
+};
+
 export async function GET(req: NextRequest, context: RouteContext) {
   const auth = await authenticateRequest(req);
   if ("error" in auth) {
@@ -40,8 +50,30 @@ export async function GET(req: NextRequest, context: RouteContext) {
   const isRevealed = now >= revealAt;
 
   if (isRevealed) {
-    const nextStatus = apple.result === "poison" ? "READY_TO_PURCHASE" : "WAITING_FOR_FULFILLMENT";
-    await adminClient.from("users").update({ status: nextStatus }).eq("id", auth.userId);
+    const result = (apple.result ?? "poison") as ResultLabel;
+    const reward = ticketRewards[result] ?? 0;
+    const nextStatus = result === "poison" ? "READY_TO_PURCHASE" : "WAITING_FOR_FULFILLMENT";
+
+    const { data: applied, error: rewardError } = await adminClient.rpc("apply_ticket_reward", {
+      target_user: auth.userId,
+      target_apple: apple.id,
+      result_label: result,
+      reward_count: reward,
+      next_status: nextStatus,
+    });
+
+    if (rewardError) {
+      return NextResponse.json({ error: rewardError.message }, { status: 500 });
+    }
+
+    if (!applied) {
+      // already processed, but ensure status alignment
+      await adminClient
+        .from("users")
+        .update({ status: nextStatus })
+        .eq("id", auth.userId)
+        .eq("status", "REVEALING");
+    }
   }
 
   return NextResponse.json({
