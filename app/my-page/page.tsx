@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabaseClient";
@@ -52,12 +52,55 @@ const statusIcon: Record<string, string> = {
   CYCLE_COMPLETE: "🎉",
 };
 
+type AppleResult = "bronze" | "silver" | "gold" | "red" | "poison";
+
+const resultIconMap: Record<AppleResult, string> = {
+  bronze: "🥉",
+  silver: "🥈",
+  gold: "🥇",
+  red: "🍎",
+  poison: "☠️",
+};
+
+const resultLabelMap: Record<AppleResult, string> = {
+  bronze: "ブロンズ",
+  silver: "シルバー",
+  gold: "ゴールド",
+  red: "赤りんご",
+  poison: "毒りんご",
+};
+
+type OverviewData = {
+  referral: {
+    code: string | null;
+    count: number;
+    friends: { id: string; status: string; joinedAt: string; wishlistUrl: string | null }[];
+  };
+  appleHistory: { id: string; result: AppleResult | null; reveal_at: string | null; created_at: string }[];
+  purchaseHistory: { id: string; status: string; created_at: string; screenshot_url: string | null; notes: string | null }[];
+  giftHistory: {
+    id: string;
+    status: string;
+    created_at: string;
+    target_user_id: string;
+    wish: { primary_item_name: string | null; primary_item_url: string | null; item_price_jpy: number | null } | null;
+  }[];
+  stats: {
+    totalWins: number;
+    totalPurchases: number;
+  };
+};
+
 export default function MyPage() {
   const { user, loading, refresh } = useUser();
   const router = useRouter();
   const [latestAppleId, setLatestAppleId] = useState<string | null>(null);
   const [usingTicket, setUsingTicket] = useState(false);
   const [ticketMessage, setTicketMessage] = useState<string | null>(null);
+  const [overview, setOverview] = useState<OverviewData | null>(null);
+  const [overviewStatus, setOverviewStatus] = useState<"idle" | "loading" | "error">("loading");
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [referralCopied, setReferralCopied] = useState(false);
 
   const currentStatus = user?.status ?? "";
   const label = useMemo(() => statusLabel[currentStatus] ?? "状態を取得できません", [currentStatus]);
@@ -82,6 +125,41 @@ export default function MyPage() {
     }
     return baseLink;
   }, [currentStatus, latestAppleId, baseLink]);
+
+  const loadOverview = useCallback(async () => {
+    setOverviewStatus("loading");
+    setOverviewError(null);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setOverviewStatus("error");
+      setOverviewError("ログインが必要です");
+      return;
+    }
+
+    const res = await fetch("/api/profile/overview", {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    const data = await res.json().catch(() => ({ error: "情報の取得に失敗しました" }));
+    if (!res.ok) {
+      setOverviewStatus("error");
+      setOverviewError(data.error || "情報の取得に失敗しました");
+      return;
+    }
+
+    setOverview(data as OverviewData);
+    setOverviewStatus("idle");
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void loadOverview();
+    });
+  }, [loadOverview]);
 
   const hasTicketOption = useMemo(() => {
     if (!user) return false;
@@ -154,6 +232,41 @@ export default function MyPage() {
     setUsingTicket(false);
     router.push("/draw");
   };
+
+  const handleFullRefresh = useCallback(async () => {
+    await Promise.all([refresh(), loadOverview()]);
+  }, [refresh, loadOverview]);
+
+  const referralLink = useMemo(() => {
+    const code = overview?.referral.code ?? user?.referral_code ?? null;
+    if (!code) return null;
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "https://ringokai.app");
+    return `${base.replace(/\/$/, "")}/signup?ref=${code}`;
+  }, [overview, user]);
+
+  const handleCopyReferral = useCallback(async () => {
+    if (!referralLink) return;
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setReferralCopied(true);
+      setTimeout(() => setReferralCopied(false), 2000);
+    } catch {
+      setReferralCopied(false);
+    }
+  }, [referralLink]);
+
+  const formatDate = useCallback((value: string) => {
+    try {
+      return new Date(value).toLocaleString("ja-JP", { hour12: false });
+    } catch {
+      return value;
+    }
+  }, []);
+
+  const referralFriends = overview?.referral.friends ?? [];
+  const appleHistory = overview?.appleHistory ?? [];
+  const purchaseHistory = overview?.purchaseHistory ?? [];
+  const giftHistory = overview?.giftHistory ?? [];
 
   if (loading) {
     return (
@@ -262,6 +375,12 @@ export default function MyPage() {
           </div>
         )}
 
+        {overviewError && (
+          <div className="mb-8 rounded-3xl border border-red-100 bg-red-50/70 p-4 text-sm text-red-700">
+            {overviewError}
+          </div>
+        )}
+
         {currentStatus === "AWAITING_APPROVAL" && (
           <div className="mb-8 rounded-3xl border border-green-100 bg-green-50/60 p-6 text-left text-sm text-[#2E5939] shadow-sm">
             <p className="text-base font-heading text-[#2E5939]">承認待ちの間に欲しいものリストを準備しましょう</p>
@@ -278,18 +397,26 @@ export default function MyPage() {
           </div>
         )}
 
-        {/* Dashboard Stats (Placeholder for future features) */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-           <div className="bg-white/40 p-4 rounded-2xl text-center border border-white">
-              <div className="text-2xl mb-1">🎫</div>
-              <div className="text-xs text-[#5D4037]/60 font-bold">免除チケット</div>
-              <div className="text-lg font-heading font-bold text-[#FF8FA3]">{user.total_exemption_tickets}枚</div>
-           </div>
-           <div className="bg-white/40 p-4 rounded-2xl text-center border border-white">
-              <div className="text-2xl mb-1">💝</div>
-              <div className="text-xs text-[#5D4037]/60 font-bold">獲得りんご</div>
-              <div className="text-lg font-heading font-bold text-[#FF8FA3]">0個</div>
-           </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white/40 p-4 rounded-2xl text-center border border-white">
+            <div className="text-2xl mb-1">🎫</div>
+            <div className="text-xs text-[#5D4037]/60 font-bold">免除チケット</div>
+            <div className="text-lg font-heading font-bold text-[#FF8FA3]">{user.total_exemption_tickets}枚</div>
+          </div>
+          <div className="bg-white/40 p-4 rounded-2xl text-center border border-white">
+            <div className="text-2xl mb-1">🍏</div>
+            <div className="text-xs text-[#5D4037]/60 font-bold">獲得りんご</div>
+            <div className="text-lg font-heading font-bold text-[#FF8FA3]">
+              {overviewStatus === "loading" ? "--" : `${overview?.stats.totalWins ?? 0}個`}
+            </div>
+          </div>
+          <div className="bg-white/40 p-4 rounded-2xl text-center border border-white">
+            <div className="text-2xl mb-1">🎀</div>
+            <div className="text-xs text-[#5D4037]/60 font-bold">購入実績</div>
+            <div className="text-lg font-heading font-bold text-[#FF8FA3]">
+              {overviewStatus === "loading" ? "--" : `${overview?.stats.totalPurchases ?? 0}件`}
+            </div>
+          </div>
         </div>
 
         <div className="mb-8 rounded-3xl border border-white bg-white/70 p-6 shadow-sm">
@@ -335,8 +462,176 @@ export default function MyPage() {
           </div>
         </div>
 
+        <div className="mb-8 rounded-3xl border border-[#FFE2EA] bg-white/80 p-6 shadow-sm">
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="text-xs font-bold text-[#FF8FA3] uppercase tracking-[0.4em]">Friend Referral</p>
+              <p className="text-lg font-heading text-[#5D4037] mt-1">友達紹介で確率をブースト</p>
+              <p className="text-xs text-[#5D4037]/60 mt-1">リンクを共有して仲間を招待すると、あなたの抽選確率が上がります。</p>
+            </div>
+
+            {overviewStatus === "loading" ? (
+              <p className="text-sm text-[#5D4037]/60">紹介情報を読み込み中...</p>
+            ) : (
+              <>
+                <div className="rounded-2xl border border-white bg-white/70 p-4">
+                  <p className="text-xs font-semibold text-[#A45A73]">あなたの紹介リンク</p>
+                  <p className="mt-2 break-all font-mono text-sm text-[#FF5C8D]">
+                    {referralLink ?? "発行準備中です"}
+                  </p>
+                  <button
+                    onClick={handleCopyReferral}
+                    disabled={!referralLink}
+                    className="mt-3 w-full rounded-full border border-[#FFC0CB] bg-white/90 py-2 text-sm font-semibold text-[#5D4033] shadow-sm transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {referralCopied ? "コピーしました！" : "リンクをコピー"}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-2xl bg-white/70 border border-white px-4 py-3">
+                    <p className="text-xs font-semibold text-[#A45A73]">紹介済み人数</p>
+                    <p className="text-lg font-heading text-[#5D1E4B]">{overview?.referral.count ?? 0}人</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 border border-white px-4 py-3">
+                    <p className="text-xs font-semibold text-[#A45A73]">現在の友達</p>
+                    <p className="text-lg font-heading text-[#5D1E4B]">{referralFriends.length}人</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-[#A45A73] uppercase tracking-[0.3em]">Friends</p>
+                  {referralFriends.length === 0 ? (
+                    <p className="mt-2 text-sm text-[#5D4037]/60">まだ招待された友達はいません。リンクを共有してみましょう！</p>
+                  ) : (
+                    <ul className="mt-3 space-y-2 text-sm text-[#5D4037]">
+                      {referralFriends.map((friend) => (
+                        <li key={friend.id} className="rounded-2xl border border-[#FFE2EA] bg-white/90 px-4 py-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold">{friend.id.slice(0, 8)}</span>
+                            <span className="text-xs text-[#FF5C8D]">{statusLabel[friend.status] ?? friend.status}</span>
+                          </div>
+                          <p className="text-[11px] text-[#5D4037]/60">{formatDate(friend.joinedAt)}</p>
+                          {friend.wishlistUrl && (
+                            <a
+                              href={friend.wishlistUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-[#a34a5d] underline"
+                            >
+                              欲しいものリストを見る
+                            </a>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-6 mb-8 md:grid-cols-2">
+          <div className="rounded-3xl border border-white bg-white/80 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-xs font-bold text-[#FF8FA3] uppercase tracking-[0.4em]">Apple History</p>
+                <p className="text-lg font-heading text-[#5D4037] mt-1">りんご履歴</p>
+              </div>
+            </div>
+            {overviewStatus === "loading" ? (
+              <p className="text-sm text-[#5D4037]/60">履歴を読み込み中...</p>
+            ) : appleHistory.length === 0 ? (
+              <p className="text-sm text-[#5D4037]/60">まだりんごを引いていません。</p>
+            ) : (
+              <ul className="space-y-3">
+                {appleHistory.map((apple) => (
+                  <li key={apple.id} className="rounded-2xl border border-[#FFE2EA] bg-white/90 px-4 py-3 flex items-center gap-3">
+                    <span className="text-2xl">{apple.result ? resultIconMap[apple.result] : "✨"}</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-[#5D4037]">
+                        {apple.result ? `${resultLabelMap[apple.result]} Apple` : "結果待ち"}
+                      </p>
+                      <p className="text-xs text-[#5D4037]/60">{formatDate(apple.created_at)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-white bg-white/80 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-xs font-bold text-[#FF8FA3] uppercase tracking-[0.4em]">Purchase History</p>
+                <p className="text-lg font-heading text-[#5D4037] mt-1">スクショ提出履歴</p>
+              </div>
+            </div>
+            {overviewStatus === "loading" ? (
+              <p className="text-sm text-[#5D4037]/60">履歴を読み込み中...</p>
+            ) : purchaseHistory.length === 0 ? (
+              <p className="text-sm text-[#5D4037]/60">まだスクリーンショットを提出していません。</p>
+            ) : (
+              <ul className="space-y-3">
+                {purchaseHistory.map((purchase) => (
+                  <li key={purchase.id} className="rounded-2xl border border-[#FFE2EA] bg-white/90 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-[#5D4037]">{purchase.status}</p>
+                      <p className="text-xs text-[#5D4037]/50">{formatDate(purchase.created_at)}</p>
+                    </div>
+                    {purchase.notes && <p className="text-xs text-[#5D4037]/70 mt-1">{purchase.notes}</p>}
+                    {purchase.screenshot_url && (
+                      <p className="text-xs text-[#5D4037]/50 mt-1 break-all">スクショ: {purchase.screenshot_url}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-8 rounded-3xl border border-white bg-white/80 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs font-bold text-[#FF8FA3] uppercase tracking-[0.4em]">Gift History</p>
+              <p className="text-lg font-heading text-[#5D4037] mt-1">購入したプレゼント</p>
+            </div>
+          </div>
+          {overviewStatus === "loading" ? (
+            <p className="text-sm text-[#5D4037]/60">履歴を読み込み中...</p>
+          ) : giftHistory.length === 0 ? (
+            <p className="text-sm text-[#5D4037]/60">まだ誰かの欲しいものを購入していません。</p>
+          ) : (
+            <ul className="space-y-3">
+              {giftHistory.map((gift) => (
+                <li key={gift.id} className="rounded-2xl border border-[#FFE2EA] bg-white/90 px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-[#5D4037]">{gift.wish?.primary_item_name ?? "アイテム名未登録"}</p>
+                    <span className="text-xs text-[#FF5C8D]">{gift.status}</span>
+                  </div>
+                  <p className="text-xs text-[#5D4037]/60">{formatDate(gift.created_at)}</p>
+                  {gift.wish?.item_price_jpy && (
+                    <p className="text-xs text-[#5D4037]/60">{gift.wish.item_price_jpy.toLocaleString()}円</p>
+                  )}
+                  {gift.wish?.primary_item_url && (
+                    <a
+                      href={gift.wish.primary_item_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-[#a34a5d] underline"
+                    >
+                      商品ページを開く
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <button
-          onClick={refresh}
+          onClick={handleFullRefresh}
           className="w-full py-3 rounded-full border-2 border-[#FFD1DC] text-[#FF8FA3] font-bold text-sm hover:bg-[#FFF5F7] transition-colors flex items-center justify-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
