@@ -155,18 +155,18 @@ export default function MyPage() {
     setOverviewStatus("idle");
   }, []);
 
-  useEffect(() => {
-    queueMicrotask(() => {
-      void loadOverview();
-    });
-  }, [loadOverview]);
-
   const hasTicketOption = useMemo(() => {
     if (!user) return false;
     if (currentStatus !== "CYCLE_COMPLETE") return false;
     if (!user.can_use_ticket) return false;
     return (user.total_exemption_tickets ?? 0) > 0;
   }, [currentStatus, user]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void loadOverview();
+    });
+  }, [loadOverview]);
 
   useEffect(() => {
     if (currentStatus !== "REVEALING") {
