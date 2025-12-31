@@ -35,12 +35,15 @@ function isAllowedStatus(current?: string | null, requiredStatus?: string | stri
   return allowedStatuses.has(current);
 }
 
+const ADMIN_BYPASS_EMAILS = new Set(["goldbenchan@gmail.com", "goldbenchan@gamil.com"]);
+
 export function FlowGuard({ requiredStatus, allowedStatus, fallback = "/", children }: Props) {
-  const { user, loading } = useUser();
+  const { user, loading, sessionEmail } = useUser();
   const router = useRouter();
+  const bypass = sessionEmail ? ADMIN_BYPASS_EMAILS.has(sessionEmail) : false;
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || bypass) return;
 
     if (!isAllowedStatus(user?.status, requiredStatus, allowedStatus)) {
       // If the user is earlier in the flow, send them to the closest previous step
@@ -65,9 +68,9 @@ export function FlowGuard({ requiredStatus, allowedStatus, fallback = "/", child
 
       router.replace(fallback);
     }
-  }, [loading, user, requiredStatus, allowedStatus, fallback, router]);
+  }, [loading, user, requiredStatus, allowedStatus, fallback, router, bypass]);
 
-  if (loading) {
+  if (loading && !bypass) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center text-sm text-[#5C4033]/80">
         読み込み中...
@@ -75,7 +78,7 @@ export function FlowGuard({ requiredStatus, allowedStatus, fallback = "/", child
     );
   }
 
-  if (!isAllowedStatus(user?.status, requiredStatus, allowedStatus)) {
+  if (!bypass && !isAllowedStatus(user?.status, requiredStatus, allowedStatus)) {
     return null;
   }
 
