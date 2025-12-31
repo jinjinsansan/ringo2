@@ -63,6 +63,9 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const reward = ticketRewards[result] ?? 0;
     const nextStatus = result === "poison" ? "READY_TO_PURCHASE" : "WAITING_FOR_FULFILLMENT";
 
+    let supportsRewardStamp = true;
+    let isFirstProcessor = false;
+
     const { data: stampedApple, error: stampError } = await adminClient
       .from("apples")
       .update({ reward_applied_at: new Date().toISOString() })
@@ -72,10 +75,18 @@ export async function GET(req: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (stampError) {
-      return NextResponse.json({ error: stampError.message }, { status: 500 });
+      if (stampError.message?.includes("reward_applied_at")) {
+        supportsRewardStamp = false;
+      } else {
+        return NextResponse.json({ error: stampError.message }, { status: 500 });
+      }
+    } else {
+      isFirstProcessor = Boolean(stampedApple);
     }
 
-    const isFirstProcessor = Boolean(stampedApple);
+    if (!supportsRewardStamp) {
+      isFirstProcessor = true;
+    }
 
     if (isFirstProcessor) {
       const { data: userRecord, error: userError } = await adminClient
