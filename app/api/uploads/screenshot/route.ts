@@ -37,10 +37,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await adminClient.storage
     .from(bucket)
-    .createSignedUploadUrl(path, {
-      expiresIn: 60,
-      contentType: contentType ?? "application/octet-stream",
-    });
+    .createSignedUploadUrl(path);
 
   if (error || !data) {
     return NextResponse.json({ error: error?.message ?? "署名付きURLの生成に失敗しました" }, { status: 500 });
