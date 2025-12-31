@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type Status = "idle" | "loading" | "success" | "error";
 
-export default function SignupPage() {
+function SignupPageContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -130,5 +130,19 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#F5F5F5] text-[#5D4037]">
+          <p className="text-sm font-semibold">読み込み中...</p>
+        </div>
+      }
+    >
+      <SignupPageContent />
+    </Suspense>
   );
 }
