@@ -23,8 +23,8 @@ const cardMap: Record<Result, string> = {
 
 const fakeCards: Result[] = ["bronze", "silver", "gold", "red", "poison"];
 
-function getFilterFromRemaining(remaining: number | null, fakeActive: boolean) {
-  if (fakeActive) return "blur(0) grayscale(0)";
+function getFilterFromRemaining(remaining: number | null, fakeActive: boolean, fakePlayed: boolean) {
+  if (fakeActive) return "blur(2px) grayscale(0)";
   if (remaining === null) return "blur(16px) grayscale(100%)";
   if (remaining <= 0) return "blur(0) grayscale(0)";
   const minutes = remaining / 1000 / 60;
@@ -33,7 +33,13 @@ function getFilterFromRemaining(remaining: number | null, fakeActive: boolean) {
   if (minutes > 30) return "blur(8px) grayscale(100%)";
   if (minutes > 20) return "blur(4px) grayscale(100%)";
   if (minutes > 10) return "blur(4px) grayscale(50%)";
-  return "blur(16px) grayscale(100%)";
+  // 10分以下はフェイク後に再び深いぼかしに戻し、最後の数分で徐々に解像度を上げる
+  if (!fakePlayed) {
+    return "blur(16px) grayscale(100%)";
+  }
+  if (minutes > 5) return "blur(10px) grayscale(80%)";
+  if (minutes > 2) return "blur(6px) grayscale(40%)";
+  return "blur(2px) grayscale(10%)";
 }
 
 export default function RevealPage() {
@@ -99,9 +105,7 @@ export default function RevealPage() {
     const serverRemaining = new Date(data.apple.revealAt).getTime() - new Date(data.serverTime).getTime();
     setRemaining(Math.max(0, serverRemaining));
     setLoading(false);
-    if (data.apple.result) {
-      finalFetchTriggered.current = true;
-    }
+    finalFetchTriggered.current = Boolean(data.apple.result);
     isFetchingRef.current = false;
   }, [appleId]);
 
@@ -160,7 +164,7 @@ export default function RevealPage() {
     });
   }, [remaining, apple, fetchApple]);
 
-  const filter = getFilterFromRemaining(remaining, fakeActive);
+  const filter = getFilterFromRemaining(remaining, fakeActive, fakePlayed);
   const cardSrc = fakeActive
     ? cardMap[fakeCard]
     : apple?.result
