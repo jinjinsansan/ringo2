@@ -37,7 +37,6 @@ const links: Record<string, string | null> = {
   REVEALING: null,
   WAITING_FOR_FULFILLMENT: null,
   CYCLE_COMPLETE: "/purchase/submit",
-  AWAITING_APPROVAL: null,
 };
 
 const statusIcon: Record<string, string> = {
