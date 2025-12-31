@@ -15,9 +15,12 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { sessionEmail } = useUser();
 
-  const isAdmin = sessionEmail === "goldbenchan@gmail.com";
-  const adminNavLink = { label: "管理者パネル", href: "/admin/verify" };
-  const navItems = isAdmin ? [...navLinks, adminNavLink] : navLinks;
+  const isAdmin = sessionEmail === "goldbenchan@gmail.com" || sessionEmail === "goldbenchan@gamil.com";
+  const adminNavLinks = [
+    { label: "管理者承認", href: "/admin/verify" },
+    { label: "Fulfillment", href: "/admin/fulfillment" },
+  ];
+  const navItems = isAdmin ? [...navLinks, ...adminNavLinks] : navLinks;
 
   return (
     <header className="fixed top-0 z-50 w-full transition-all duration-300 bg-white/70 backdrop-blur-md shadow-sm border-b border-white/50">

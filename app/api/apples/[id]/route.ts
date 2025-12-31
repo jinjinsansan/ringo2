@@ -15,6 +15,15 @@ const ticketRewards: Record<ResultLabel, number> = {
   poison: 0,
 };
 
+type UserTicketSnapshot = {
+  status: string;
+  exemption_tickets_bronze?: number | null;
+  exemption_tickets_silver?: number | null;
+  exemption_tickets_gold?: number | null;
+  exemption_tickets_red?: number | null;
+  total_exemption_tickets?: number | null;
+};
+
 export async function GET(req: NextRequest, context: RouteContext) {
   const auth = await authenticateRequest(req);
   if ("error" in auth) {
@@ -54,20 +63,66 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const reward = ticketRewards[result] ?? 0;
     const nextStatus = result === "poison" ? "READY_TO_PURCHASE" : "WAITING_FOR_FULFILLMENT";
 
-    const { data: applied, error: rewardError } = await adminClient.rpc("apply_ticket_reward", {
-      target_user: auth.userId,
-      target_apple: apple.id,
-      result_label: result,
-      reward_count: reward,
-      next_status: nextStatus,
-    });
+    const { data: stampedApple, error: stampError } = await adminClient
+      .from("apples")
+      .update({ reward_applied_at: new Date().toISOString() })
+      .eq("id", apple.id)
+      .is("reward_applied_at", null)
+      .select("id")
+      .maybeSingle();
 
-    if (rewardError) {
-      return NextResponse.json({ error: rewardError.message }, { status: 500 });
+    if (stampError) {
+      return NextResponse.json({ error: stampError.message }, { status: 500 });
     }
 
-    if (!applied) {
-      // already processed, but ensure status alignment
+    const isFirstProcessor = Boolean(stampedApple);
+
+    if (isFirstProcessor) {
+      const { data: userRecord, error: userError } = await adminClient
+        .from("users")
+        .select(
+          "status, exemption_tickets_bronze, exemption_tickets_silver, exemption_tickets_gold, exemption_tickets_red, total_exemption_tickets"
+        )
+        .eq("id", auth.userId)
+        .single<UserTicketSnapshot>();
+
+      if (userError || !userRecord) {
+        return NextResponse.json({ error: userError?.message ?? "User not found" }, { status: 500 });
+      }
+
+      const updates: Record<string, number | string> = {
+        status: nextStatus,
+      };
+
+      if (reward > 0) {
+        const columnMap: Record<ResultLabel, keyof UserTicketSnapshot | null> = {
+          bronze: "exemption_tickets_bronze",
+          silver: "exemption_tickets_silver",
+          gold: "exemption_tickets_gold",
+          red: "exemption_tickets_red",
+          poison: null,
+        };
+
+        const targetColumn = columnMap[result];
+        if (targetColumn) {
+          const snapshot = userRecord as Record<string, number | string | null | undefined>;
+          const current = Number(snapshot[targetColumn] ?? 0);
+          updates[targetColumn] = current + reward;
+        }
+        const total = Number(userRecord.total_exemption_tickets ?? 0);
+        updates.total_exemption_tickets = total + reward;
+      }
+
+      const { error: updateError } = await adminClient
+        .from("users")
+        .update(updates)
+        .eq("id", auth.userId)
+        .eq("status", "REVEALING");
+
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+    } else {
       await adminClient
         .from("users")
         .update({ status: nextStatus })

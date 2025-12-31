@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type UserRecord = {
@@ -15,6 +15,10 @@ type UserRecord = {
   exemption_tickets_red: number;
   total_exemption_tickets: number;
   can_use_ticket: boolean;
+  referral_code?: string | null;
+  referral_count?: number | null;
+  referral_bonus_level?: number | null;
+  referred_by?: string | null;
 };
 
 type UserContextValue = {
@@ -30,8 +34,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const claimingReferralRef = useRef(false);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     setLoading(true);
     const {
       data: { session },
@@ -69,7 +74,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     };
 
     await loadRecord();
-  };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -90,7 +95,50 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchUser]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!user) return;
+    const pendingCode = window.localStorage.getItem("rk_pending_referral_code");
+    if (!pendingCode) return;
+    if (user.referred_by) {
+      window.localStorage.removeItem("rk_pending_referral_code");
+      return;
+    }
+    if (claimingReferralRef.current) return;
+    claimingReferralRef.current = true;
+
+    (async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          claimingReferralRef.current = false;
+          return;
+        }
+
+        const res = await fetch("/api/referrals/claim", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ referralCode: pendingCode }),
+        });
+
+        if (res.ok) {
+          window.localStorage.removeItem("rk_pending_referral_code");
+          await fetchUser();
+        } else {
+          window.localStorage.removeItem("rk_pending_referral_code");
+        }
+      } finally {
+        claimingReferralRef.current = false;
+      }
+    })();
+  }, [user, fetchUser]);
 
   return (
     <UserContext.Provider

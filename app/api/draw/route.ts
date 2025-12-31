@@ -4,21 +4,39 @@ import { isAdminBypassEmail } from "@/lib/adminBypass";
 
 type Result = "bronze" | "silver" | "gold" | "red" | "poison";
 
-const weights: { result: Result; weight: number }[] = [
-  { result: "poison", weight: 50 },
-  { result: "bronze", weight: 35 },
-  { result: "silver", weight: 10 },
-  { result: "gold", weight: 4.9 },
-  { result: "red", weight: 0.1 },
-];
+type WeightMap = Record<Result, number>;
 
-function pickResult(): Result {
-  const total = weights.reduce((sum, w) => sum + w.weight, 0);
+const baseWeights: WeightMap = {
+  poison: 50,
+  bronze: 35,
+  silver: 10,
+  gold: 4.9,
+  red: 0.1,
+};
+
+function getPersonalWeights(referralCount: number | null | undefined): WeightMap {
+  const count = typeof referralCount === "number" && referralCount > 0 ? referralCount : 0;
+  if (!count) return { ...baseWeights };
+
+  const reduction = Math.min(20, count * 1.5);
+  const redistributed = reduction;
+  return {
+    poison: Math.max(15, baseWeights.poison - reduction),
+    bronze: baseWeights.bronze + redistributed * 0.5,
+    silver: baseWeights.silver + redistributed * 0.25,
+    gold: baseWeights.gold + redistributed * 0.2,
+    red: baseWeights.red + redistributed * 0.05,
+  };
+}
+
+function pickResult(weightMap: WeightMap): Result {
+  const entries = Object.entries(weightMap) as [Result, number][];
+  const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
   const r = Math.random() * total;
   let acc = 0;
-  for (const w of weights) {
-    acc += w.weight;
-    if (r <= acc) return w.result;
+  for (const [result, weight] of entries) {
+    acc += weight;
+    if (r <= acc) return result;
   }
   return "poison";
 }
@@ -36,7 +54,7 @@ export async function POST(req: NextRequest) {
 
   const { data: userRecord, error: userError } = await adminClient
     .from("users")
-    .select("status")
+    .select("status, referral_count")
     .eq("id", auth.userId)
     .single();
 
@@ -50,9 +68,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "現在は抽選できません" }, { status: 400 });
   }
 
+  const referralCount = typeof userRecord.referral_count === "number" ? userRecord.referral_count : 0;
+
   const now = Date.now();
   const revealAt = new Date(now + 60 * 60 * 1000).toISOString();
-  const result = pickResult();
+  const result = pickResult(getPersonalWeights(referralCount));
 
   const { data: apple, error: appleError } = await adminClient
     .from("apples")

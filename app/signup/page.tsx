@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type Status = "idle" | "loading" | "success" | "error";
@@ -10,6 +11,13 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const refCode = searchParams.get("ref");
+    if (typeof window === "undefined" || !refCode) return;
+    window.localStorage.setItem("rk_pending_referral_code", refCode);
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

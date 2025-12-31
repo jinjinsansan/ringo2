@@ -56,6 +56,8 @@ export default function MyPage() {
   const { user, loading, refresh } = useUser();
   const router = useRouter();
   const [latestAppleId, setLatestAppleId] = useState<string | null>(null);
+  const [usingTicket, setUsingTicket] = useState(false);
+  const [ticketMessage, setTicketMessage] = useState<string | null>(null);
 
   const currentStatus = user?.status ?? "";
   const label = useMemo(() => statusLabel[currentStatus] ?? "状態を取得できません", [currentStatus]);
@@ -80,6 +82,13 @@ export default function MyPage() {
     }
     return baseLink;
   }, [currentStatus, latestAppleId, baseLink]);
+
+  const hasTicketOption = useMemo(() => {
+    if (!user) return false;
+    if (currentStatus !== "CYCLE_COMPLETE") return false;
+    if (!user.can_use_ticket) return false;
+    return (user.total_exemption_tickets ?? 0) > 0;
+  }, [currentStatus, user]);
 
   useEffect(() => {
     if (currentStatus !== "REVEALING") {
@@ -113,6 +122,38 @@ export default function MyPage() {
       active = false;
     };
   }, [currentStatus]);
+
+  const handleUseTicket = async () => {
+    setTicketMessage(null);
+    setUsingTicket(true);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setTicketMessage("ログインが必要です");
+      setUsingTicket(false);
+      return;
+    }
+
+    const res = await fetch("/api/tickets/use", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    const data = await res.json().catch(() => ({ error: "チケットの使用に失敗しました" }));
+    if (!res.ok) {
+      setTicketMessage(data.error || "チケットの使用に失敗しました");
+      setUsingTicket(false);
+      return;
+    }
+
+    await refresh();
+    setUsingTicket(false);
+    router.push("/draw");
+  };
 
   if (loading) {
     return (
@@ -184,6 +225,43 @@ export default function MyPage() {
            )}
         </div>
 
+        {hasTicketOption && user && (
+          <div className="mb-8 rounded-3xl border border-[#FFCCF0] bg-[#FFF5FB] p-6 shadow-sm">
+            <p className="text-base font-heading text-[#5D1E4B]">購入免除チケットを使ってりんごを引けます！</p>
+            <p className="mt-2 text-sm text-[#5D1E4B]/70">
+              今回のサイクルで一度だけ、誰かの欲しいものを購入せずに抽選ステップへ進めます。
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-2xl bg-white/80 border border-white px-4 py-3">
+                <p className="text-xs text-[#A45A73] font-bold">シルバー</p>
+                <p className="text-lg font-heading text-[#5D1E4B]">{user.exemption_tickets_silver}枚</p>
+              </div>
+              <div className="rounded-2xl bg-white/80 border border-white px-4 py-3">
+                <p className="text-xs text-[#A45A73] font-bold">ゴールド</p>
+                <p className="text-lg font-heading text-[#5D1E4B]">{user.exemption_tickets_gold}枚</p>
+              </div>
+              <div className="rounded-2xl bg-white/80 border border-white px-4 py-3">
+                <p className="text-xs text-[#A45A73] font-bold">赤りんご</p>
+                <p className="text-lg font-heading text-[#5D1E4B]">{user.exemption_tickets_red}枚</p>
+              </div>
+              <div className="rounded-2xl bg-white/80 border border-white px-4 py-3">
+                <p className="text-xs text-[#A45A73] font-bold">合計</p>
+                <p className="text-lg font-heading text-[#5D1E4B]">{user.total_exemption_tickets}枚</p>
+              </div>
+            </div>
+
+            {ticketMessage && <p className="mt-3 text-sm text-red-600">{ticketMessage}</p>}
+
+            <button
+              onClick={handleUseTicket}
+              disabled={usingTicket}
+              className="btn-primary mt-4 w-full py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {usingTicket ? "チケットを使用中..." : "チケットを使ってりんごを引く"}
+            </button>
+          </div>
+        )}
+
         {currentStatus === "AWAITING_APPROVAL" && (
           <div className="mb-8 rounded-3xl border border-green-100 bg-green-50/60 p-6 text-left text-sm text-[#2E5939] shadow-sm">
             <p className="text-base font-heading text-[#2E5939]">承認待ちの間に欲しいものリストを準備しましょう</p>
@@ -205,7 +283,7 @@ export default function MyPage() {
            <div className="bg-white/40 p-4 rounded-2xl text-center border border-white">
               <div className="text-2xl mb-1">🎫</div>
               <div className="text-xs text-[#5D4037]/60 font-bold">免除チケット</div>
-              <div className="text-lg font-heading font-bold text-[#FF8FA3]">0枚</div>
+              <div className="text-lg font-heading font-bold text-[#FF8FA3]">{user.total_exemption_tickets}枚</div>
            </div>
            <div className="bg-white/40 p-4 rounded-2xl text-center border border-white">
               <div className="text-2xl mb-1">💝</div>
