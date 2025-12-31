@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
+import { isAdminBypassEmail } from "@/lib/adminBypass";
 
 type WishlistPayload = {
   wishlistUrl?: string;
@@ -129,10 +130,12 @@ export async function POST(req: NextRequest) {
     wishlist_url: wishlistUrl,
   };
 
-  const nextStatus =
-    userResult.data.status === "READY_TO_REGISTER_WISHLIST"
-      ? "READY_TO_DRAW"
-      : userResult.data.status;
+  const bypass = isAdminBypassEmail(auth.email);
+  const nextStatus = bypass
+    ? "READY_TO_DRAW"
+    : userResult.data.status === "READY_TO_REGISTER_WISHLIST"
+        ? "READY_TO_DRAW"
+        : userResult.data.status;
 
   if (nextStatus !== userResult.data.status) {
     userUpdates.status = nextStatus;

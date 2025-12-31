@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -9,8 +9,8 @@ type Result = "bronze" | "silver" | "gold" | "red" | "poison";
 
 type Apple = {
   id: string;
-  result: Result;
-  reveal_at: string;
+  result: Result | null;
+  revealAt: string;
 };
 
 const cardMap: Record<Result, string> = {
@@ -21,20 +21,19 @@ const cardMap: Record<Result, string> = {
   poison: "/images/cards/poison_apple_card_final.png",
 };
 
-function getFilter(revealAt: string) {
-  const now = Date.now();
-  const target = new Date(revealAt).getTime();
-  const diff = target - now; // ms
+const fakeCards: Result[] = ["bronze", "silver", "gold", "red", "poison"];
 
-  if (diff <= 0) return "blur(0) grayscale(0)";
-
-  const minutes = diff / 1000 / 60;
+function getFilterFromRemaining(remaining: number | null, fakeActive: boolean) {
+  if (fakeActive) return "blur(0) grayscale(0)";
+  if (remaining === null) return "blur(16px) grayscale(100%)";
+  if (remaining <= 0) return "blur(0) grayscale(0)";
+  const minutes = remaining / 1000 / 60;
   if (minutes > 50) return "blur(16px) grayscale(100%)";
   if (minutes > 40) return "blur(12px) grayscale(100%)";
   if (minutes > 30) return "blur(8px) grayscale(100%)";
   if (minutes > 20) return "blur(4px) grayscale(100%)";
   if (minutes > 10) return "blur(4px) grayscale(50%)";
-  return "blur(0) grayscale(0)";
+  return "blur(16px) grayscale(100%)";
 }
 
 export default function RevealPage() {
@@ -42,11 +41,14 @@ export default function RevealPage() {
   const router = useRouter();
   const appleId = params?.id as string | undefined;
   const [apple, setApple] = useState<Apple | null>(null);
-  const [filter, setFilter] = useState("blur(16px) grayscale(100%)");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [fakeActive, setFakeActive] = useState(false);
+  const [fakePlayed, setFakePlayed] = useState(false);
+  const [fakeCard, setFakeCard] = useState<Result>("bronze");
+  const isFetchingRef = useRef(false);
+  const finalFetchTriggered = useRef(false);
 
   const countdown = useMemo(() => {
     if (remaining === null) return "--:--";
@@ -58,78 +60,112 @@ export default function RevealPage() {
     return `${m}:${s}`;
   }, [remaining]);
 
-  const isRevealed = remaining !== null && remaining <= 0;
+  const isRevealed = apple?.result ? true : remaining !== null && remaining <= 0;
 
   const fetchApple = useCallback(async () => {
-    if (!appleId) return;
+    if (!appleId || isFetchingRef.current) return;
+    isFetchingRef.current = true;
     const {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession();
-    if (sessionError || !session?.user) {
+    if (sessionError || !session?.access_token) {
       setMessage("ログインが必要です");
       setLoading(false);
+      isFetchingRef.current = false;
       return;
     }
 
-    const { data, error } = await supabase
-      .from("apples")
-      .select("id, result, reveal_at")
-      .eq("id", appleId)
-      .eq("user_id", session.user.id)
-      .single();
+    const res = await fetch(`/api/apples/${appleId}`, {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
 
-    if (error || !data) {
-      setMessage(error?.message ?? "データ取得に失敗しました");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: "情報の取得に失敗しました" }));
+      setMessage(data.error || "情報の取得に失敗しました");
       setLoading(false);
+      isFetchingRef.current = false;
       return;
     }
-    setApple(data as Apple);
+
+    const data = await res.json();
+    setApple({
+      id: data.apple.id,
+      result: data.apple.result,
+      revealAt: data.apple.revealAt,
+    });
+    const serverRemaining = new Date(data.apple.revealAt).getTime() - new Date(data.serverTime).getTime();
+    setRemaining(Math.max(0, serverRemaining));
     setLoading(false);
+    if (data.apple.result) {
+      finalFetchTriggered.current = true;
+    }
+    isFetchingRef.current = false;
   }, [appleId]);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!mounted) return;
-      await fetchApple();
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [appleId, fetchApple]);
+    queueMicrotask(() => {
+      fetchApple();
+    });
+  }, [fetchApple]);
 
   useEffect(() => {
     if (!apple) return;
-
-    const updateTimers = () => {
-      setRemaining(Math.max(0, new Date(apple.reveal_at).getTime() - Date.now()));
-      setFilter(getFilter(apple.reveal_at));
+    const update = () => {
+      setRemaining(Math.max(0, new Date(apple.revealAt).getTime() - Date.now()));
     };
-
-    updateTimers();
-    const timer = setInterval(updateTimers, 10000);
+    update();
+    const timer = setInterval(update, 1000);
     return () => clearInterval(timer);
   }, [apple]);
 
   useEffect(() => {
-    if (!apple || !isRevealed) return;
+    if (!apple || fakePlayed) return;
+    if (remaining === null) return;
+    const isFakePhase = remaining > 0 && remaining <= 10 * 60 * 1000;
+    if (!isFakePhase) return;
 
-    const finalize = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) return;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const raf = requestAnimationFrame(() => {
+      setFakeActive(true);
+      interval = setInterval(() => {
+        const pick = fakeCards[Math.floor(Math.random() * fakeCards.length)];
+        setFakeCard(pick);
+      }, 120);
+      timeout = setTimeout(() => {
+        if (interval) clearInterval(interval);
+        setFakeActive(false);
+        setFakePlayed(true);
+      }, 8000);
+    });
 
-      // 結果に応じてユーザーステータス更新
-      const nextStatus = apple.result === "poison" ? "READY_TO_PURCHASE" : "WAITING_FOR_FULFILLMENT";
-      await supabase.from("users").update({ status: nextStatus }).eq("id", session.user.id);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (interval) clearInterval(interval);
+      if (timeout) clearTimeout(timeout);
     };
+  }, [remaining, fakePlayed, apple]);
 
-    finalize();
-  }, [apple, isRevealed]);
+  useEffect(() => {
+    if (!apple) return;
+    if (apple.result) return;
+    if (remaining === null || remaining > 0) return;
+    if (finalFetchTriggered.current) return;
+    finalFetchTriggered.current = true;
+    queueMicrotask(() => {
+      fetchApple();
+    });
+  }, [remaining, apple, fetchApple]);
 
-  const cardSrc = apple ? cardMap[apple.result] : "/images/cards/bronze_apple_card_v2.png";
+  const filter = getFilterFromRemaining(remaining, fakeActive);
+  const cardSrc = fakeActive
+    ? cardMap[fakeCard]
+    : apple?.result
+        ? cardMap[apple.result]
+        : "/images/cards/bronze_apple_card_v2.png";
 
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 relative overflow-hidden">
@@ -183,15 +219,15 @@ export default function RevealPage() {
               />
             </div>
 
-            {isRevealed && (
+            {apple?.result ? (
               <div className="mt-8 text-center animate-fade-up space-y-4 w-full">
                 <div>
-                   <p className="text-sm font-bold text-[#5D4037]/60">RESULT</p>
-                   <p className="text-4xl font-heading font-bold text-[#FF8FA3] mt-1 capitalize">
-                     {apple.result} Apple
-                   </p>
+                  <p className="text-sm font-bold text-[#5D4037]/60">RESULT</p>
+                  <p className="text-4xl font-heading font-bold text-[#FF8FA3] mt-1 capitalize">
+                    {apple.result} Apple
+                  </p>
                 </div>
-                
+
                 <button
                   onClick={() => router.push("/my-page")}
                   className="btn-primary px-10 py-4 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transition-all"
@@ -199,12 +235,14 @@ export default function RevealPage() {
                   マイページへ戻る
                 </button>
               </div>
-            )}
-            
-            {!isRevealed && (
-               <p className="mt-8 text-sm text-[#5D4037]/60 animate-pulse">
-                 じわじわと結果が見えてきます...
-               </p>
+            ) : (
+              <p className="mt-8 text-sm text-[#5D4037]/60 animate-pulse text-center px-6">
+                {isRevealed
+                  ? "結果を取得しています... 少しだけお待ちください。"
+                  : fakeActive
+                    ? "ラストスパート！いろいろなりんごが目の前でシャッフルされています..."
+                    : "じわじわと結果が見えてきます..."}
+              </p>
             )}
           </div>
         )}

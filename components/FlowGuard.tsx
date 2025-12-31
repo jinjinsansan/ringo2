@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
+import { isAdminBypassEmail } from "@/lib/adminBypass";
 
 type Props = {
   requiredStatus: string | string[];
@@ -35,12 +36,10 @@ function isAllowedStatus(current?: string | null, requiredStatus?: string | stri
   return allowedStatuses.has(current);
 }
 
-const ADMIN_BYPASS_EMAILS = new Set(["goldbenchan@gmail.com", "goldbenchan@gamil.com"]);
-
 export function FlowGuard({ requiredStatus, allowedStatus, fallback = "/", children }: Props) {
   const { user, loading, sessionEmail } = useUser();
   const router = useRouter();
-  const bypass = sessionEmail ? ADMIN_BYPASS_EMAILS.has(sessionEmail) : false;
+  const bypass = isAdminBypassEmail(sessionEmail);
 
   useEffect(() => {
     if (loading || bypass) return;

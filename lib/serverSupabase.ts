@@ -32,7 +32,7 @@ export async function authenticateRequest(req: NextRequest) {
     return { error: "Unauthorized" } as const;
   }
 
-  return { userId: data.user.id } as const;
+  return { userId: data.user.id, email: data.user.email ?? null } as const;
 }
 
 export function getAdminClient(): SupabaseClient | null {

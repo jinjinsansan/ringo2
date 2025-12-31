@@ -5,27 +5,6 @@ import { useRouter } from "next/navigation";
 import { FlowGuard } from "@/components/FlowGuard";
 import { supabase } from "@/lib/supabaseClient";
 
-type Result = "bronze" | "silver" | "gold" | "red" | "poison";
-
-const weights: { result: Result; weight: number }[] = [
-  { result: "poison", weight: 50 },
-  { result: "bronze", weight: 35 },
-  { result: "silver", weight: 10 },
-  { result: "gold", weight: 4.9 },
-  { result: "red", weight: 0.1 },
-];
-
-function pickResult(): Result {
-  const total = weights.reduce((sum, w) => sum + w.weight, 0);
-  const r = Math.random() * total;
-  let acc = 0;
-  for (const w of weights) {
-    acc += w.weight;
-    if (r <= acc) return w.result;
-  }
-  return "poison";
-}
-
 export default function DrawPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -46,38 +25,23 @@ export default function DrawPage() {
       return;
     }
 
-    const result = pickResult();
-    const revealAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const drawRes = await fetch("/api/draw", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
 
-    const { data, error } = await supabase
-      .from("apples")
-      .insert({
-        user_id: session.user.id,
-        result,
-        reveal_at: revealAt,
-      })
-      .select("id")
-      .single();
-
-    if (error || !data) {
+    if (!drawRes.ok) {
+      const data = await drawRes.json().catch(() => ({ error: "抽選に失敗しました" }));
       setLoading(false);
-      setMessage(error?.message ?? "抽選に失敗しました");
+      setMessage(data.error || "抽選に失敗しました");
       return;
     }
 
-    const { error: statusError } = await supabase
-      .from("users")
-      .update({ status: "REVEALING" })
-      .eq("id", session.user.id);
-
-    if (statusError) {
-      setLoading(false);
-      setMessage(statusError.message ?? "ステータス更新に失敗しました");
-      return;
-    }
-
+    const data = await drawRes.json();
     setLoading(false);
-    router.push(`/reveal/${data.id}`);
+    router.push(`/reveal/${data.appleId}`);
   };
 
   return (
