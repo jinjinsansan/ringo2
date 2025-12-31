@@ -142,10 +142,20 @@ export default function WishlistRegisterPage() {
       return;
     }
 
+    const data = await res.json().catch(() => ({ status: null }));
+    const nextStatus = data?.status ?? null;
+
     setState("success");
-    setMessage("保存しました！次はいよいよ抽選ステップへ進めます。");
+    setMessage(
+      nextStatus === "READY_TO_DRAW"
+        ? "保存しました！次はいよいよ抽選ステップへ進めます。"
+        : "保存しました！承認完了後に抽選ステップへ進めます。"
+    );
     await refresh();
-    router.push("/draw");
+
+    if (nextStatus === "READY_TO_DRAW") {
+      router.push("/draw");
+    }
   };
 
   return (
