@@ -9,33 +9,57 @@ import { supabase } from "@/lib/supabaseClient";
 const appleTypes = [
   {
     title: "ブロンズりんご",
-    description: "もっとも多く登場する基本のりんご。誰かの欲しいものを購入し合う“物々交換”が成立します。",
     accent: "bg-gradient-to-br from-[#FDECEF] to-[#FFF5F7]",
-    badge: "交換成立",
+    summary: "基本の物々交換サイクルが成立します。",
+    flow: [
+      "STEP1: あなたが別のメンバーの欲しいものリストから3,000〜4,000円の商品を購入",
+      "STEP2: そのお礼としてコミュニティ内の誰かがあなたの欲しいものリストから商品を購入",
+    ],
+    exemptionLabel: "免除回数 0回",
   },
   {
     title: "シルバーりんご",
-    description: "毒りんごがストックされた分だけ開放される特別枠。自分の購入が免除され、次回の抽選も優先されます。",
     accent: "bg-gradient-to-br from-[#EEF2FF] to-[#F7F9FF]",
-    badge: "優待",
+    summary: "今回の交換を完了すると、購入免除チケットが2枚ストックされます。使いたいタイミングで消費すると1サイクル分の購入が免除されます。",
+    flow: [
+      "STEP1: ブロンズと同じく今回のサイクルを通常通り完了 (あなたも誰かのリストを購入)",
+      "STEP2: 結果確定後にシルバーチケット2枚がマイページ > 免除チケットに加算される",
+      "STEP3: 次回以降『チケットを使う』を押すと、1枚につき1サイクルあなたの購入が免除され、あなたのリストだけが購入される",
+    ],
+    exemptionLabel: "免除チケット 2枚 (1枚=1サイクル免除)",
   },
   {
     title: "ゴールドりんご",
-    description: "超レア報酬。豪華ギフトが確約されるほか、コミュニティ内でスポットライトが当たります。",
     accent: "bg-gradient-to-br from-[#FFF5D6] to-[#FFF3E0]",
-    badge: "特別",
+    summary: "購入免除チケットが3枚まとめて付与され、最大3サイクル分を好きなタイミングでスキップできます。",
+    flow: [
+      "STEP1: 今回はブロンズ同様に通常交換を完了",
+      "STEP2: ゴールドチケット3枚がマイページに付与される",
+      "STEP3: 必要なサイクルで1枚ずつ使用すると、そのサイクルでは購入せずにギフトだけ受け取れる",
+    ],
+    exemptionLabel: "免除チケット 3枚",
   },
   {
     title: "赤りんご",
-    description: "ピンポイントで嬉しいボーナス。季節のキャンペーンやシークレット演出でのみ登場します。",
     accent: "bg-gradient-to-br from-[#FFE3E3] to-[#FFF2F2]",
-    badge: "キャンペーン",
+    summary: "最大級のボーナス。購入免除チケットが5枚加算され、長期間ギフトを受け取れます。",
+    flow: [
+      "STEP1: 今回は通常交換を完了",
+      "STEP2: 赤りんごチケット5枚が付与されストックされる",
+      "STEP3: チケットを消費したサイクルでは購入免除であなたのリストだけが購入される",
+    ],
+    exemptionLabel: "免除チケット 5枚",
   },
   {
     title: "毒りんご",
-    description: "誰かが毒りんごを引くと、別の誰かに上位りんごの権利がストックされます。負けがあるから勝ちも生まれる仕組みです。",
     accent: "bg-gradient-to-br from-[#FBE7FF] to-[#FFF0FF]",
-    badge: "リセット",
+    summary: "今回はやり直しになりますが、そのぶんコミュニティに上位りんごのチャンスが1枚分ストックされます。",
+    flow: [
+      "STEP1: 結果は毒判定となり、あなたのステータスはREADY_TO_PURCHASEに戻る",
+      "STEP2: 毒を引いた分だけ上位トークンが蓄積され、別のメンバーのシルバー/ゴールド/赤出現率が上がる",
+      "STEP3: あなた自身も再挑戦することで再びブロンズ→上位のチャンスに入れる",
+    ],
+    exemptionLabel: "免除チケット 0枚 (上位トークン +1)",
   },
 ];
 
@@ -57,7 +81,7 @@ const privacyLinks = [
 const troubleshooting = [
   "スクショ提出後に画面が進まない場合は、アップロード先のURLをコピーしてLINEで送ってください。",
   "抽選結果が表示されないときは、ブラウザを更新しても変わらなければ公式LINEでIDを共有してください。",
-  "欲しいものリストを編集できない場合は、ステータスがREADY_TO_REGISTER_WISHLISTになるまで待つか運営へ連絡してください。",
+  "欲しいものリストは一度保存すると、誰かが購入してくれるまで編集できません。",
 ];
 
 const LINE_URL = process.env.NEXT_PUBLIC_LINE_URL ?? "https://lin.ee/lhRkKd8";
@@ -177,11 +201,18 @@ export default function GuidePage() {
                   {appleTypes.map((apple) => (
                     <div key={apple.title} className={`rounded-3xl border border-white/60 p-4 shadow-inner ${apple.accent}`}>
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-bold uppercase tracking-[0.4em] text-[#b45364]">{apple.badge}</p>
+                        <h3 className="font-heading text-lg text-[#5D4037]">{apple.title}</h3>
                         <span className="text-xl">🍎</span>
                       </div>
-                      <h3 className="font-heading text-lg text-[#5D4037]">{apple.title}</h3>
-                      <p className="text-sm text-[#5D4037]/70 mt-2 leading-relaxed">{apple.description}</p>
+                      <p className="text-xs font-semibold text-[#B45364]">{apple.exemptionLabel}</p>
+                      <p className="text-sm text-[#5D4037]/80 mt-2 leading-relaxed">{apple.summary}</p>
+                      <ul className="mt-3 space-y-2 text-xs text-[#5D4037]/70">
+                        {apple.flow.map((line) => (
+                          <li key={line} className="rounded-2xl bg-white/60 px-3 py-2 border border-white/70">
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   ))}
                 </div>
@@ -214,13 +245,6 @@ export default function GuidePage() {
                       </span>
                     </a>
                   ))}
-                </div>
-                <div className="rounded-2xl border border-dashed border-[#FF8FA3]/60 bg-white/60 p-4 text-xs text-[#5D4037]/70">
-                  <p className="font-bold text-[#FF5C8D] mb-1">Droidからのアドバイス</p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>マイページ内の「匿名ガイド」カードからも同じ内容をいつでも読み返せます。</li>
-                    <li>アカウント名よりも「受取人/住所のニックネーム設定」を優先して確認してください。</li>
-                  </ul>
                 </div>
               </div>
             </section>
