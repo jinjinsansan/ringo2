@@ -55,16 +55,14 @@ export async function GET(req: NextRequest) {
 
   if (selfRes.error) {
     const message = selfRes.error.message ?? "Failed to load referral data";
-    if (message.includes("referral_code") || message.includes("referral_count")) {
-      supportsReferralCode = false;
-    } else {
+    const missingColumn =
+      selfRes.error.code === "42703" || message.includes("referral_code") || message.includes("referral_count");
+    if (!missingColumn) {
       return NextResponse.json({ error: message }, { status: 500 });
     }
   } else if (selfRes.data) {
     referralCode = selfRes.data.referral_code ?? null;
     referralCount = selfRes.data.referral_count ?? 0;
-  } else {
-    supportsReferralCode = false;
   }
 
   if (supportsReferralCode && !referralCode) {
