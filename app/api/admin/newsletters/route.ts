@@ -4,6 +4,7 @@ import { isAdminBypassEmail } from "@/lib/adminBypass";
 import { listAllAuthUsers } from "@/lib/adminUsers";
 import { buildNewsletterEmail } from "@/lib/emailTemplates";
 import { dispatchNotifications } from "@/lib/notifications";
+import { stripHtmlToPlainText } from "@/lib/text";
 
 export async function GET(req: NextRequest) {
   const auth = await authenticateRequest(req);
@@ -64,15 +65,17 @@ export async function POST(req: NextRequest) {
   const authUsers = await listAllAuthUsers(adminClient);
   const recipients = authUsers.filter((user) => user.email);
   const template = buildNewsletterEmail({ title, htmlBody: body, previewText });
+  const plainBody = stripHtmlToPlainText(body);
+  const notificationBody = [previewText?.trim(), plainBody].filter(Boolean).join("\n\n") || "新しいお知らせが届いています。";
 
-  await dispatchNotifications(
+  const sendResults = await dispatchNotifications(
     adminClient,
     recipients.map((user) => ({
       userId: user.id,
       title,
-      body: previewText ?? "新しいお知らせが届いています。",
+      body: notificationBody,
       category: "newsletter",
-      metadata: { newsletterId: inserted.id },
+      metadata: { newsletterId: inserted.id, newsletterHtml: body, previewText: previewText ?? null },
       email: {
         to: user.email as string,
         subject: template.subject,
@@ -87,5 +90,5 @@ export async function POST(req: NextRequest) {
     .update({ recipient_count: recipients.length, sent_at: new Date().toISOString() })
     .eq("id", inserted.id);
 
-  return NextResponse.json({ ok: true, newsletterId: inserted.id, recipients: recipients.length });
+  return NextResponse.json({ ok: true, newsletterId: inserted.id, recipients: recipients.length, sendResults });
 }

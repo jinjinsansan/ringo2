@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabaseClient";
+import { stripHtmlToPlainText } from "@/lib/text";
 
 const statusLabel: Record<string, string> = {
   AWAITING_TOS_AGREEMENT: "利用規約の同意が必要です",
@@ -129,6 +130,7 @@ export default function MyPage() {
   const [notificationError, setNotificationError] = useState<string | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [notificationRefreshing, setNotificationRefreshing] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<NotificationItem | null>(null);
 
   const currentStatus = user?.status ?? "";
   const label = useMemo(() => statusLabel[currentStatus] ?? "状態を取得できません", [currentStatus]);
@@ -354,6 +356,13 @@ export default function MyPage() {
       setNotifications((prev) => prev.map((item) => (item.read_at ? item : { ...item, read_at: now })));
       setUnreadNotifications(0);
     }
+  }, []);
+
+  const getNotificationBodyText = useCallback((item: NotificationItem) => {
+    if (item.metadata && typeof item.metadata.newsletterHtml === "string") {
+      return stripHtmlToPlainText(item.metadata.newsletterHtml as string);
+    }
+    return item.body;
   }, []);
 
   const [referralEnsuring, setReferralEnsuring] = useState(false);
@@ -665,7 +674,10 @@ export default function MyPage() {
                 notifications.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => void handleMarkNotificationRead(item.id)}
+                    onClick={() => {
+                      void handleMarkNotificationRead(item.id);
+                      setSelectedNotification(item);
+                    }}
                     className={`w-full text-left rounded-2xl border px-5 py-4 transition shadow-sm ${
                       item.read_at ? "border-white bg-white/70" : "border-[#FFD1DC] bg-[#FFF5F7]"
                     }`}
@@ -676,7 +688,9 @@ export default function MyPage() {
                       </p>
                       <p className="text-xs text-[#5D4037]/50">{formatDate(item.created_at)}</p>
                     </div>
-                    <p className="mt-2 text-sm text-[#5D4037]/80 leading-relaxed">{item.body}</p>
+                    <p className="mt-2 text-sm text-[#5D4037]/80 leading-relaxed whitespace-pre-line max-h-24 overflow-hidden">
+                      {getNotificationBodyText(item) || "本文はありません"}
+                    </p>
                     {!item.read_at && (
                       <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-[#FF8FA3] px-3 py-1 text-xs font-bold text-white">
                         ● 未読
@@ -688,6 +702,29 @@ export default function MyPage() {
             </div>
           )}
         </section>
+
+        {selectedNotification && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 px-4 py-10">
+            <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl border border-[#FFD1DC]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-[#FF8FA3] tracking-[0.3em] uppercase">Notification</p>
+                  <h3 className="mt-1 text-xl font-heading text-[#5D4037]">{selectedNotification.title}</h3>
+                  <p className="text-xs text-[#5D4037]/60 mt-1">{formatDate(selectedNotification.created_at)}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedNotification(null)}
+                  className="rounded-full border border-[#FFD1DC] px-3 py-1 text-xs font-bold text-[#5D4037] hover:bg-[#FFF5F7]"
+                >
+                  閉じる
+                </button>
+              </div>
+              <div className="mt-4 max-h-[60vh] overflow-y-auto rounded-2xl bg-[#FFF5F7] border border-[#FFD1DC] px-4 py-3 text-sm text-[#5D4037] whitespace-pre-line leading-relaxed">
+                {getNotificationBodyText(selectedNotification) || "本文はありません"}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mb-8 rounded-3xl border border-white bg-white/70 p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4">

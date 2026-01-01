@@ -13,12 +13,22 @@ type NewsletterHistory = {
   sent_by_email: string | null;
 };
 
+type SendResult = {
+  userId: string;
+  notificationId: string;
+  email?: {
+    to: string | string[];
+    messageId?: string | null;
+  };
+};
+
 export default function AdminNewslettersPage() {
   const [title, setTitle] = useState("");
   const [previewText, setPreviewText] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [sendResults, setSendResults] = useState<SendResult[]>([]);
   const [history, setHistory] = useState<NewsletterHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -85,15 +95,18 @@ export default function AdminNewslettersPage() {
       const responseBody = await res.json().catch(() => ({ error: "送信に失敗しました" }));
       if (!res.ok) {
         setStatusMessage(responseBody.error ?? "送信に失敗しました");
+        setSendResults([]);
       } else {
         setStatusMessage(`送信しました (対象 ${responseBody.recipients ?? 0} 名)`);
         setTitle("");
         setPreviewText("");
         setBody("");
+        setSendResults(responseBody.sendResults ?? []);
         await fetchHistory();
       }
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "送信に失敗しました");
+      setSendResults([]);
     } finally {
       setSending(false);
     }
@@ -142,6 +155,27 @@ export default function AdminNewslettersPage() {
           {statusMessage && (
             <div className="rounded-2xl border border-[#FFD1DC] bg-[#FFF5F7] px-4 py-3 text-sm text-[#5C4033]">
               {statusMessage}
+            </div>
+          )}
+          {sendResults.length > 0 && (
+            <div className="rounded-2xl border border-[#FFD1DC] bg-white/80 px-4 py-3 text-xs text-[#5C4033] space-y-2">
+              <p className="font-semibold text-[#FF5C8D]">直近の送信ログ</p>
+              <p className="text-[#5C4033]/70">
+                Resend ダッシュボードで message ID を検索すると配信状況を確認できます。
+              </p>
+              <div className="max-h-48 overflow-y-auto space-y-2">
+                {sendResults.map((result) => {
+                  const to = Array.isArray(result.email?.to) ? result.email?.to.join(", ") : result.email?.to ?? "--";
+                  return (
+                    <div key={result.notificationId} className="rounded-2xl border border-[#FFE4EC] bg-white/70 px-3 py-2">
+                      <p className="font-semibold text-[#5C4033]">{to}</p>
+                      <p className="text-[11px] text-[#5C4033]/60">
+                        message ID: {result.email?.messageId ?? "送信処理中"}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
           <button
