@@ -66,15 +66,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Application user record not found" }, { status: 404 });
   }
 
-  const deleteAssignments = await adminClient
+  const deleteAssignmentsAsBuyer = await adminClient
     .from("wishlist_assignments")
     .delete()
-    .or(`buyer_id.eq.${targetUserId},target_user_id.eq.${targetUserId}`)
+    .eq("buyer_id", targetUserId)
     .select("id");
 
-  if (deleteAssignments.error) {
-    return NextResponse.json({ error: deleteAssignments.error.message }, { status: 500 });
+  if (deleteAssignmentsAsBuyer.error) {
+    return NextResponse.json({ error: deleteAssignmentsAsBuyer.error.message }, { status: 500 });
   }
+
+  const deleteAssignmentsAsTarget = await adminClient
+    .from("wishlist_assignments")
+    .delete()
+    .eq("target_user_id", targetUserId)
+    .select("id");
+
+  if (deleteAssignmentsAsTarget.error) {
+    return NextResponse.json({ error: deleteAssignmentsAsTarget.error.message }, { status: 500 });
+  }
+
+  const assignmentsDeletedCount = (deleteAssignmentsAsBuyer.data?.length ?? 0) + (deleteAssignmentsAsTarget.data?.length ?? 0);
 
   const deletePurchases = await adminClient
     .from("purchases")
@@ -96,15 +108,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: deleteApples.error.message }, { status: 500 });
   }
 
-  const deleteEvents = await adminClient
+  const deleteEventsAsBuyer = await adminClient
     .from("fulfillment_events")
     .delete()
-    .or(`buyer_id.eq.${targetUserId},recipient_id.eq.${targetUserId}`)
+    .eq("buyer_id", targetUserId)
     .select("id");
 
-  if (deleteEvents.error) {
-    return NextResponse.json({ error: deleteEvents.error.message }, { status: 500 });
+  if (deleteEventsAsBuyer.error) {
+    return NextResponse.json({ error: deleteEventsAsBuyer.error.message }, { status: 500 });
   }
+
+  const deleteEventsAsRecipient = await adminClient
+    .from("fulfillment_events")
+    .delete()
+    .eq("recipient_id", targetUserId)
+    .select("id");
+
+  if (deleteEventsAsRecipient.error) {
+    return NextResponse.json({ error: deleteEventsAsRecipient.error.message }, { status: 500 });
+  }
+
+  const eventsDeletedCount = (deleteEventsAsBuyer.data?.length ?? 0) + (deleteEventsAsRecipient.data?.length ?? 0);
 
   const deleteWishlist = await adminClient
     .from("wishlists")
@@ -140,10 +164,10 @@ export async function POST(req: NextRequest) {
       userId: targetUserId,
       resetTo: targetStatus,
       deleted: {
-        assignments: deleteAssignments.data?.length ?? 0,
+        assignments: assignmentsDeletedCount,
         purchases: deletePurchases.data?.length ?? 0,
         apples: deleteApples.data?.length ?? 0,
-        fulfillmentEvents: deleteEvents.data?.length ?? 0,
+        fulfillmentEvents: eventsDeletedCount,
         wishlists: deleteWishlist.data?.length ?? 0,
       },
     },
