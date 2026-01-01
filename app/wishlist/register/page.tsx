@@ -213,7 +213,7 @@ export default function WishlistRegisterPage() {
                   <div className="text-2xl">🎁</div>
                   <div>
                     <p className="text-sm font-bold text-[#FF8FA3] uppercase tracking-widest">STEP 2</p>
-                    <p className="font-heading text-lg text-[#5D4037]">優先して買ってほしい商品</p>
+                    <p className="font-heading text-lg text-[#5D4037]">あなたの欲しいものを詳しく</p>
                   </div>
                 </div>
 
@@ -224,20 +224,6 @@ export default function WishlistRegisterPage() {
                     value={form.primaryItemName}
                     onChange={(e) => updateForm("primaryItemName", e.target.value)}
                     placeholder="例: りんご柄のティーポット"
-                    className="w-full rounded-2xl border-2 border-[#FFD1DC] bg-white/70 px-4 py-3 text-[#5D4037] placeholder-[#5D4037]/40 outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-[#5D4037] ml-1 flex items-center justify-between">
-                    商品のURL（任意）
-                    <span className="text-xs text-[#5D4037]/50">あるとメンバーが助かります</span>
-                  </label>
-                  <input
-                    type="url"
-                    value={form.primaryItemUrl}
-                    onChange={(e) => updateForm("primaryItemUrl", e.target.value)}
-                    placeholder="https://www.amazon.co.jp/..."
                     className="w-full rounded-2xl border-2 border-[#FFD1DC] bg-white/70 px-4 py-3 text-[#5D4037] placeholder-[#5D4037]/40 outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
                   />
                 </div>
