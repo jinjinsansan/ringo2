@@ -186,7 +186,7 @@ export default function AdminRtpPage() {
               </p>
               <button
                 onClick={handleUpdate}
-                disabled={!secret || loading || !totalValid}
+                disabled={loading || !totalValid}
                 className="mt-4 w-full rounded-full bg-[#FF5C8D] px-6 py-3 text-white font-semibold shadow-md transition hover:shadow-lg disabled:opacity-60"
               >
                 {loading ? "更新中..." : "RTPを更新する"}
