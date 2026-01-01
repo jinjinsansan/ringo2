@@ -62,7 +62,7 @@ const appleTypes = [
     summary: "残念ながら今回はハズレ。最初のステップからやり直しになります。",
     flow: [
       "STEP1: あなたが別のメンバーの欲しいものリストから3,000〜4,000円の商品を購入",
-      "STEP2: 今回はハズレなのでステータスはREADY_TO_PURCHASEに戻り、次の交換に再挑戦",
+      "STEP2: 今回はハズレなので振り出しに戻り、次の交換に再挑戦",
     ],
     exemptionLabel: "免除チケット 0枚",
     iconSrc: "/images/cards/poison_apple_card_final.png",
