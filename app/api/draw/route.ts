@@ -43,13 +43,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Service role key is not configured" }, { status: 500 });
   }
 
-  const { data: userRecord, error: userError } = await adminClient
+  let referralCount = 0;
+  let userRecord: { status: string } | null = null;
+  const { data: userData, error: userError } = await adminClient
     .from("users")
     .select("status, referral_count")
     .eq("id", auth.userId)
-    .single();
+    .maybeSingle();
 
-  if (userError || !userRecord) {
+  if (userError) {
+    const missingReferralColumn = userError.code === "42703" || (userError.message ?? "").includes("referral_count");
+    if (!missingReferralColumn) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    const { data: fallbackData, error: fallbackError } = await adminClient
+      .from("users")
+      .select("status")
+      .eq("id", auth.userId)
+      .maybeSingle();
+    if (fallbackError || !fallbackData) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    userRecord = fallbackData;
+  } else if (userData) {
+    userRecord = { status: userData.status };
+    referralCount = typeof userData.referral_count === "number" ? userData.referral_count : 0;
+  }
+
+  if (!userRecord) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
@@ -58,8 +79,6 @@ export async function POST(req: NextRequest) {
   if (!bypass && userRecord.status !== "READY_TO_DRAW") {
     return NextResponse.json({ error: "現在は抽選できません" }, { status: 400 });
   }
-
-  const referralCount = typeof userRecord.referral_count === "number" ? userRecord.referral_count : 0;
 
   const baseWeights = await loadAppleWeights(adminClient);
 
