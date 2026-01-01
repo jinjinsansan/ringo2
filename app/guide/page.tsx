@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FlowGuard } from "@/components/FlowGuard";
 import { useUser } from "@/context/UserContext";
@@ -10,12 +11,14 @@ const appleTypes = [
   {
     title: "ブロンズりんご",
     accent: "bg-gradient-to-br from-[#FDECEF] to-[#FFF5F7]",
-    summary: "基本の物々交換サイクルが成立します。",
+    summary: "もっとも基本的なりんご。互いにプレゼントを送り合う物々交換が成立します。",
     flow: [
       "STEP1: あなたが別のメンバーの欲しいものリストから3,000〜4,000円の商品を購入",
       "STEP2: そのお礼としてコミュニティ内の誰かがあなたの欲しいものリストから商品を購入",
+      "STEP3: 交換が完了したら次のサイクルに進み、また同じルールで抽選を受けます",
     ],
-    exemptionLabel: "免除回数 0回",
+    exemptionLabel: "免除チケット 0枚 (純粋な物々交換)",
+    iconSrc: "/images/cards/bronze_apple_card_v2.png",
   },
   {
     title: "シルバーりんご",
@@ -27,6 +30,7 @@ const appleTypes = [
       "STEP3: 次回以降『チケットを使う』を押すと、1枚につき1サイクルあなたの購入が免除され、あなたのリストだけが購入される",
     ],
     exemptionLabel: "免除チケット 2枚 (1枚=1サイクル免除)",
+    iconSrc: "/images/cards/silver_apple_card_final.png",
   },
   {
     title: "ゴールドりんご",
@@ -38,6 +42,7 @@ const appleTypes = [
       "STEP3: 必要なサイクルで1枚ずつ使用すると、そのサイクルでは購入せずにギフトだけ受け取れる",
     ],
     exemptionLabel: "免除チケット 3枚",
+    iconSrc: "/images/cards/gold_apple_card_v2.png",
   },
   {
     title: "赤りんご",
@@ -49,17 +54,18 @@ const appleTypes = [
       "STEP3: チケットを消費したサイクルでは購入免除であなたのリストだけが購入される",
     ],
     exemptionLabel: "免除チケット 5枚",
+    iconSrc: "/images/cards/red_apple_card_premium.png",
   },
   {
     title: "毒りんご",
     accent: "bg-gradient-to-br from-[#FBE7FF] to-[#FFF0FF]",
-    summary: "今回はやり直しになりますが、そのぶんコミュニティに上位りんごのチャンスが1枚分ストックされます。",
+    summary: "残念ながら今回はハズレ。最初のステップからやり直しになります。",
     flow: [
-      "STEP1: 結果は毒判定となり、あなたのステータスはREADY_TO_PURCHASEに戻る",
-      "STEP2: 毒を引いた分だけ上位トークンが蓄積され、別のメンバーのシルバー/ゴールド/赤出現率が上がる",
-      "STEP3: あなた自身も再挑戦することで再びブロンズ→上位のチャンスに入れる",
+      "STEP1: あなたが別のメンバーの欲しいものリストから3,000〜4,000円の商品を購入",
+      "STEP2: 今回はハズレなのでステータスはREADY_TO_PURCHASEに戻り、次の交換に再挑戦",
     ],
-    exemptionLabel: "免除チケット 0枚 (上位トークン +1)",
+    exemptionLabel: "免除チケット 0枚",
+    iconSrc: "/images/cards/poison_apple_card_final.png",
   },
 ];
 
@@ -202,7 +208,9 @@ export default function GuidePage() {
                     <div key={apple.title} className={`rounded-3xl border border-white/60 p-4 shadow-inner ${apple.accent}`}>
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-heading text-lg text-[#5D4037]">{apple.title}</h3>
-                        <span className="text-xl">🍎</span>
+                        <div className="h-12 w-12 rounded-full bg-white/80 border border-white/80 flex items-center justify-center">
+                          <Image src={apple.iconSrc} alt={apple.title} width={32} height={32} className="object-contain" />
+                        </div>
                       </div>
                       <p className="text-xs font-semibold text-[#B45364]">{apple.exemptionLabel}</p>
                       <p className="text-sm text-[#5D4037]/80 mt-2 leading-relaxed">{apple.summary}</p>
