@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabaseClient";
@@ -256,12 +256,56 @@ export default function MyPage() {
     await Promise.all([refresh(), loadOverview()]);
   }, [refresh, loadOverview]);
 
+  const [referralEnsuring, setReferralEnsuring] = useState(false);
+  const [referralEnsureError, setReferralEnsureError] = useState<string | null>(null);
+  const referralEnsureRequestedRef = useRef(false);
+
+  const ensureReferralCode = useCallback(async () => {
+    setReferralEnsureError(null);
+    setReferralEnsuring(true);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setReferralEnsuring(false);
+      setReferralEnsureError("ログインが必要です");
+      return false;
+    }
+
+    const res = await fetch("/api/referrals/ensure", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    const body = await res.json().catch(() => ({ error: "紹介リンクの発行に失敗しました" }));
+    if (!res.ok) {
+      setReferralEnsuring(false);
+      setReferralEnsureError(body.error ?? "紹介リンクの発行に失敗しました");
+      return false;
+    }
+
+    await handleFullRefresh();
+    setReferralEnsuring(false);
+    return true;
+  }, [handleFullRefresh]);
+
   const referralLink = useMemo(() => {
     const code = overview?.referral.code ?? user?.referral_code ?? null;
     if (!code) return null;
     const base = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "https://ringokai.app");
     return `${base.replace(/\/$/, "")}/signup?ref=${code}`;
   }, [overview, user]);
+
+  useEffect(() => {
+    if (loading || referralLink || referralEnsuring || referralEnsureRequestedRef.current) return;
+    referralEnsureRequestedRef.current = true;
+    const id = setTimeout(() => {
+      void ensureReferralCode();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [loading, referralLink, referralEnsuring, ensureReferralCode]);
 
   const handleCopyReferral = useCallback(async () => {
     if (!referralLink) return;
@@ -535,13 +579,23 @@ export default function MyPage() {
                   <p className="mt-2 break-all font-mono text-sm text-[#FF5C8D]">
                     {referralLink ?? "発行準備中です"}
                   </p>
-                  <button
-                    onClick={handleCopyReferral}
-                    disabled={!referralLink}
-                    className="mt-3 w-full rounded-full border border-[#FFC0CB] bg-white/90 py-2 text-sm font-semibold text-[#5D4033] shadow-sm transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {referralCopied ? "コピーしました！" : "リンクをコピー"}
-                  </button>
+                  {referralEnsureError && <p className="mt-2 text-xs text-red-600">{referralEnsureError}</p>}
+                  {referralLink ? (
+                    <button
+                      onClick={handleCopyReferral}
+                      className="mt-3 w-full rounded-full border border-[#FFC0CB] bg-white/90 py-2 text-sm font-semibold text-[#5D4033] shadow-sm transition hover:bg-white"
+                    >
+                      {referralCopied ? "コピーしました！" : "リンクをコピー"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => void ensureReferralCode()}
+                      disabled={referralEnsuring}
+                      className="mt-3 w-full rounded-full border border-[#FFC0CB] bg-white/90 py-2 text-sm font-semibold text-[#5D4033] shadow-sm transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {referralEnsuring ? "発行中..." : "リンクを発行する"}
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-sm">
