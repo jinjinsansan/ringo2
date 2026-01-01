@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/context/UserContext";
+import { supabase } from "@/lib/supabaseClient";
 
 const navLinks = [
   { label: "利用規約", href: "/tos" },
@@ -13,10 +14,25 @@ const navLinks = [
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const { sessionEmail } = useUser();
 
   const isAdmin = sessionEmail === "goldbenchan@gmail.com";
   const navItems = isAdmin ? [...navLinks, { label: "管理者パネル", href: "/admin" }] : navLinks;
+  const isLoggedIn = Boolean(sessionEmail);
+  const displayName = useMemo(() => {
+    if (!sessionEmail) return "";
+    const [name] = sessionEmail.split("@");
+    return name ?? sessionEmail;
+  }, [sessionEmail]);
+
+  const handleLogout = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    setSigningOut(false);
+    setMenuOpen(false);
+  };
 
   return (
     <header className="fixed top-0 z-50 w-full transition-all duration-300 bg-white/70 backdrop-blur-md shadow-sm border-b border-white/50">
@@ -38,18 +54,36 @@ export default function Header() {
             </Link>
           ))}
           <div className="flex items-center gap-4 ml-4">
-            <Link
-              href="/login"
-              className="px-6 py-2.5 rounded-full border border-[#FF8FA3] text-[#FF8FA3] font-bold hover:bg-[#FFF5F7] transition-all"
-            >
-              ログイン
-            </Link>
-            <Link
-              href="/signup"
-              className="btn-primary px-6 py-2.5 rounded-full font-bold shadow-lg shadow-[#FF8FA3]/30"
-            >
-              無料で始める
-            </Link>
+            {isLoggedIn ? (
+              <>
+                <span className="px-4 py-2 rounded-full bg-[#FFF5F7] text-[#5D4037] font-semibold border border-[#FFD1DC]">
+                  {displayName}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={signingOut}
+                  className="px-6 py-2.5 rounded-full border border-[#FF8FA3] text-[#FF8FA3] font-bold hover:bg-[#FFF5F7] transition-all disabled:opacity-60"
+                >
+                  {signingOut ? "ログアウト中" : "ログアウト"}
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="px-6 py-2.5 rounded-full border border-[#FF8FA3] text-[#FF8FA3] font-bold hover:bg-[#FFF5F7] transition-all"
+                >
+                  ログイン
+                </Link>
+                <Link
+                  href="/signup"
+                  className="btn-primary px-6 py-2.5 rounded-full font-bold shadow-lg shadow-[#FF8FA3]/30"
+                >
+                  無料で始める
+                </Link>
+              </>
+            )}
           </div>
         </nav>
 
@@ -80,20 +114,38 @@ export default function Header() {
             </Link>
           ))}
           <div className="flex flex-col gap-3 mt-2">
-            <Link 
-              href="/login" 
-              className="w-full py-3 rounded-full border border-[#FF8FA3] text-[#FF8FA3] font-bold text-center"
-              onClick={() => setMenuOpen(false)}
-            >
-              ログイン
-            </Link>
-            <Link 
-              href="/signup" 
-              className="w-full py-3 rounded-full bg-[#FF8FA3] text-white font-bold text-center shadow-lg"
-              onClick={() => setMenuOpen(false)}
-            >
-              無料で始める
-            </Link>
+            {isLoggedIn ? (
+              <>
+                <div className="w-full py-3 rounded-full bg-[#FFF5F7] text-[#5D4037] font-semibold text-center border border-[#FFD1DC]">
+                  {displayName}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={signingOut}
+                  className="w-full py-3 rounded-full border border-[#FF8FA3] text-[#FF8FA3] font-bold text-center disabled:opacity-60"
+                >
+                  {signingOut ? "ログアウト中" : "ログアウト"}
+                </button>
+              </>
+            ) : (
+              <>
+                <Link 
+                  href="/login" 
+                  className="w-full py-3 rounded-full border border-[#FF8FA3] text-[#FF8FA3] font-bold text-center"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  ログイン
+                </Link>
+                <Link 
+                  href="/signup" 
+                  className="w-full py-3 rounded-full bg-[#FF8FA3] text-white font-bold text-center shadow-lg"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  無料で始める
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
