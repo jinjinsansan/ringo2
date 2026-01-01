@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FlowGuard } from "@/components/FlowGuard";
 import { supabase } from "@/lib/supabaseClient";
@@ -188,6 +189,20 @@ export default function WishlistRegisterPage() {
             <div className="py-16 text-center text-[#5D4037]/70">読み込み中...</div>
           ) : (
             <form className="space-y-6" onSubmit={handleSubmit}>
+              <div className="rounded-3xl border border-[#FFE2EA] bg-[#FFF5F7] p-5 shadow-sm">
+                <p className="text-xs font-bold text-[#FF8FA3] uppercase tracking-[0.3em]">Privacy Tips</p>
+                <p className="mt-2 text-sm text-[#5D4037]/80">
+                  Amazonの設定を誤ると本名や住所が公開リンクから見えてしまうことがあります。登録前に、匿名化の手順をまとめた
+                  ガイドを必ず確認してください。
+                </p>
+                <Link
+                  href="/resources/wishlist-privacy"
+                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#FF8FA3]/30 px-4 py-2 text-xs font-bold text-[#FF8FA3] hover:bg-white"
+                >
+                  匿名公開ガイドを見る →
+                </Link>
+              </div>
+
               <section className="rounded-3xl border border-white bg-white/60 p-6 shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="text-2xl">📎</div>

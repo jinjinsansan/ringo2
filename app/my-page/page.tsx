@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabaseClient";
@@ -559,6 +560,35 @@ export default function MyPage() {
                 {currentStatus === "AWAITING_APPROVAL" && " 今のうちに登録しておきましょう。"}
               </span>
             )}
+          </div>
+        </div>
+
+        <div className="grid gap-4 mb-8 md:grid-cols-2">
+          <div className="rounded-3xl border border-[#FFE2EA] bg-white/80 p-5 shadow-sm">
+            <p className="text-xs font-bold text-[#FF8FA3] uppercase tracking-[0.3em]">For Creators</p>
+            <h3 className="font-heading text-lg text-[#5D4037] mt-1">匿名でほしい物リストを公開する</h3>
+            <p className="text-xs text-[#5D4037]/70 mt-2">
+              受取人名や住所の設定ミスを防ぎ、安全にAmazonの欲しい物リストを共有する手順をまとめました。
+            </p>
+            <Link
+              href="/resources/wishlist-privacy"
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#FF8FA3]/30 px-4 py-2 text-xs font-bold text-[#FF8FA3] hover:bg-[#FFF5F7]"
+            >
+              ガイドを読む →
+            </Link>
+          </div>
+          <div className="rounded-3xl border border-[#D2F1E4] bg-white/80 p-5 shadow-sm">
+            <p className="text-xs font-bold text-[#38A169] uppercase tracking-[0.3em]">For Helpers</p>
+            <h3 className="font-heading text-lg text-[#2E5939] mt-1">匿名でプレゼントを贈る</h3>
+            <p className="text-xs text-[#2E5939]/70 mt-2">
+              ギフト設定のオン／オフ別に送る側の注意点を整理。スクショ提出前にチェックしておきましょう。
+            </p>
+            <Link
+              href="/resources/gift-privacy"
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#38A169]/30 px-4 py-2 text-xs font-bold text-[#2E5939] hover:bg-[#E8FFF4]"
+            >
+              ガイドを読む →
+            </Link>
           </div>
         </div>
 

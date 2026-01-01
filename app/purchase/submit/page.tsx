@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FlowGuard } from "@/components/FlowGuard";
 import { supabase } from "@/lib/supabaseClient";
@@ -218,6 +219,17 @@ export default function PurchaseSubmitPage() {
             <p className="text-[#5D4037]/70 mt-3 text-sm leading-relaxed">
               購入が完了したら、証拠画像をアップロードしましょう。<br />
               運営が確認した後、りんごを引くことができます！
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-[#D2F1E4] bg-[#F4FFFA] px-5 py-4 text-sm text-[#2E5939]/80">
+            <p className="font-bold text-[#2E5939] text-xs tracking-[0.3em] uppercase">Anonymous Tips</p>
+            <p className="mt-2">
+              贈り主の名前が配送ラベルに表示されないようにするには、Amazonでの購入設定が重要です。ギフト設定のオン/オフ別の注意点は
+              <Link href="/resources/gift-privacy" className="text-[#1E6F5C] underline ml-1">
+                匿名でプレゼントを贈るガイド
+              </Link>
+              を参照してください。
             </p>
           </div>
 
