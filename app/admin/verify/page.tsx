@@ -10,6 +10,24 @@ type Purchase = {
   status: string;
   created_at: string;
   notes: string | null;
+  buyerAuth?: {
+    email: string | null;
+  } | null;
+  assignment?: {
+    id: string;
+    status: string;
+    targetUser?: {
+      id: string;
+      email: string | null;
+      status: string;
+      wishlist_url: string | null;
+      wishlist?: {
+        item_price_jpy: number | null;
+        primary_item_name: string | null;
+        primary_item_url: string | null;
+      } | null;
+    } | null;
+  } | null;
   users?: {
     status: string;
     wishlist_url?: string | null;
@@ -99,7 +117,12 @@ export default function AdminVerifyPage() {
   return (
     <div className="min-h-screen bg-[#F5F5F5] px-4 py-12 text-[#5C4033]">
       <div className="mx-auto w-full max-w-4xl rounded-2xl bg-white p-8 shadow-lg">
-        <h1 className="font-heading mb-6 text-2xl">管理者承認</h1>
+        <div className="mb-6 space-y-2">
+          <h1 className="font-heading text-2xl">管理者承認</h1>
+          <p className="text-sm text-[#5C4033]/70">
+            承認すると購入者は次ステップへ進み、同時に割当先ユーザーが自動的に「受取完了」扱いになり CYCLE_COMPLETE へ更新されます。
+          </p>
+        </div>
 
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center">
           <button
@@ -126,7 +149,10 @@ export default function AdminVerifyPage() {
             >
               <div className="flex flex-col gap-2 text-sm text-[#5C4033]/90">
                 <div className="font-semibold">Purchase ID: {p.id}</div>
-                <div>User ID: {p.user_id}</div>
+                <div>
+                  購入者 ID: {p.user_id}
+                  {p.buyerAuth?.email && <span className="ml-2 text-xs text-[#5C4033]/70">({p.buyerAuth.email})</span>}
+                </div>
                 <div>ステータス: {p.status}</div>
                 {p.users?.status && <div>ユーザー現在ステータス: {p.users.status}</div>}
                 {p.users?.wishlists?.primary_item_name && (
@@ -170,6 +196,56 @@ export default function AdminVerifyPage() {
                 {p.notes && <div>メモ: {p.notes}</div>}
                 <div>提出日時: {new Date(p.created_at).toLocaleString()}</div>
               </div>
+
+              {p.assignment && (
+                <div className="mt-4 rounded-xl bg-white/70 border border-[#FFC0CB]/60 p-3 text-sm text-[#5C4033] space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-[#FF5C8D]">対象ユーザー</p>
+                    <span className="text-xs text-[#5C4033]/60">Assignment: {p.assignment.id}</span>
+                  </div>
+                  {p.assignment.targetUser ? (
+                    <>
+                      <div>
+                        ID: {p.assignment.targetUser.id}
+                        {p.assignment.targetUser.email && (
+                          <span className="ml-2 text-xs text-[#5C4033]/70">({p.assignment.targetUser.email})</span>
+                        )}
+                      </div>
+                      <div>現在ステータス: {p.assignment.targetUser.status}</div>
+                      {p.assignment.targetUser.wishlist_url && (
+                        <a
+                          className="text-[#a34a5d] underline"
+                          href={p.assignment.targetUser.wishlist_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          欲しいものリストを開く
+                        </a>
+                      )}
+                      {p.assignment.targetUser.wishlist?.primary_item_name && (
+                        <div>
+                          リクエスト: {p.assignment.targetUser.wishlist.primary_item_name}
+                          {typeof p.assignment.targetUser.wishlist.item_price_jpy === "number" && (
+                            <> ({p.assignment.targetUser.wishlist.item_price_jpy.toLocaleString()}円)</>
+                          )}
+                        </div>
+                      )}
+                      {p.assignment.targetUser.wishlist?.primary_item_url && (
+                        <a
+                          className="text-[#a34a5d] underline"
+                          href={p.assignment.targetUser.wishlist.primary_item_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          商品ページを開く
+                        </a>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-[#5C4033]/70">割当先の詳細を取得できませんでした。</p>
+                  )}
+                </div>
+              )}
 
               <div className="mt-3 flex flex-wrap gap-3">
                 <button

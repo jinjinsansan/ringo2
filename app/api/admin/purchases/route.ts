@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 import { isAdminBypassEmail } from "@/lib/adminBypass";
+import { fetchAuthUsers } from "@/lib/adminUsers";
 
 const screenshotBucket = process.env.SUPABASE_SCREENSHOT_BUCKET;
 export async function GET(req: NextRequest) {
@@ -44,7 +45,91 @@ export async function GET(req: NextRequest) {
     })
   );
 
-  return NextResponse.json({ purchases: purchasesWithUrls });
+  const purchaseIds = purchasesWithUrls.map((purchase) => purchase.id);
+  const assignmentsResult = purchaseIds.length
+    ? await adminClient
+        .from("wishlist_assignments")
+        .select("id, purchase_id, buyer_id, target_user_id, status")
+        .in("purchase_id", purchaseIds)
+    : { data: [], error: null };
+
+  if (assignmentsResult.error) {
+    return NextResponse.json({ error: assignmentsResult.error.message }, { status: 500 });
+  }
+
+  const assignmentMap = new Map<string, (typeof assignmentsResult.data)[number]>();
+  for (const row of assignmentsResult.data ?? []) {
+    if (row.purchase_id) {
+      assignmentMap.set(row.purchase_id, row);
+    }
+  }
+
+  const targetIds = Array.from(new Set((assignmentsResult.data ?? []).map((row) => row.target_user_id).filter(Boolean)));
+
+  const [targetUsersResult, targetWishlistsResult] = targetIds.length
+    ? await Promise.all([
+        adminClient
+          .from("users")
+          .select("id, status, wishlist_url")
+          .in("id", targetIds),
+        adminClient
+          .from("wishlists")
+          .select("user_id, primary_item_name, primary_item_url, item_price_jpy")
+          .in("user_id", targetIds),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+
+  if (targetUsersResult.error || targetWishlistsResult.error) {
+    return NextResponse.json({ error: targetUsersResult.error?.message ?? targetWishlistsResult.error?.message ?? "Failed to load target details" }, { status: 500 });
+  }
+
+  const targetUserMap = new Map<string, (typeof targetUsersResult.data)[number]>();
+  for (const user of targetUsersResult.data ?? []) {
+    targetUserMap.set(user.id, user);
+  }
+
+  const wishlistMap = new Map<string, (typeof targetWishlistsResult.data)[number]>();
+  for (const wishlist of targetWishlistsResult.data ?? []) {
+    if (wishlist.user_id) {
+      wishlistMap.set(wishlist.user_id, wishlist);
+    }
+  }
+
+  const authUserIds = Array.from(
+    new Set([
+      ...purchasesWithUrls.map((purchase) => purchase.user_id),
+      ...targetIds,
+    ])
+  );
+  const authMap = await fetchAuthUsers(adminClient, authUserIds);
+
+  const enriched = purchasesWithUrls.map((purchase) => {
+    const assignment = assignmentMap.get(purchase.id);
+    const targetUser = assignment?.target_user_id ? targetUserMap.get(assignment.target_user_id) : null;
+    const targetWishlist = assignment?.target_user_id ? wishlistMap.get(assignment.target_user_id) : null;
+
+    return {
+      ...purchase,
+      buyerAuth: authMap.get(purchase.user_id) ?? null,
+      assignment: assignment
+        ? {
+            id: assignment.id,
+            status: assignment.status,
+            targetUser: targetUser
+              ? {
+                  id: targetUser.id,
+                  status: targetUser.status,
+                  wishlist_url: targetUser.wishlist_url,
+                  email: authMap.get(targetUser.id)?.email ?? null,
+                  wishlist: targetWishlist ?? null,
+                }
+              : null,
+          }
+        : null,
+    };
+  });
+
+  return NextResponse.json({ purchases: enriched });
 }
 
 export async function POST(req: NextRequest) {
@@ -66,6 +151,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
   }
 
+  if (!["approve", "reject"].includes(action)) {
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+  }
+
+  const purchaseResult = await adminClient
+    .from("purchases")
+    .select("id, user_id, status, screenshot_url, notes, created_at")
+    .eq("id", purchaseId)
+    .maybeSingle();
+
+  if (purchaseResult.error || !purchaseResult.data) {
+    return NextResponse.json({ error: purchaseResult.error?.message ?? "Purchase not found" }, { status: 404 });
+  }
+
+  if (purchaseResult.data.user_id !== userId) {
+    return NextResponse.json({ error: "User mismatch" }, { status: 400 });
+  }
+
+  if (purchaseResult.data.status !== "submitted") {
+    return NextResponse.json({ error: "This purchase has already been processed" }, { status: 400 });
+  }
+
   const nextPurchaseStatus = action === "approve" ? "approved" : "rejected";
   const nextUserStatus =
     action === "approve" ? "READY_TO_REGISTER_WISHLIST" : "READY_TO_PURCHASE";
@@ -73,7 +180,8 @@ export async function POST(req: NextRequest) {
   const { error: purchaseError } = await adminClient
     .from("purchases")
     .update({ status: nextPurchaseStatus })
-    .eq("id", purchaseId);
+    .eq("id", purchaseId)
+    .eq("status", "submitted");
 
   if (purchaseError) {
     return NextResponse.json({ error: purchaseError.message }, { status: 500 });
@@ -87,6 +195,49 @@ export async function POST(req: NextRequest) {
   if (userError) {
     return NextResponse.json({ error: userError.message }, { status: 500 });
   }
+
+  const assignmentResult = await adminClient
+    .from("wishlist_assignments")
+    .select("id, status, buyer_id, target_user_id")
+    .eq("purchase_id", purchaseId)
+    .maybeSingle();
+
+  if (assignmentResult.error) {
+    return NextResponse.json({ error: assignmentResult.error.message }, { status: 500 });
+  }
+
+  if (assignmentResult.data) {
+    if (action === "approve") {
+      await adminClient
+        .from("wishlist_assignments")
+        .update({ status: "completed", completed_at: new Date().toISOString() })
+        .eq("id", assignmentResult.data.id);
+
+      if (assignmentResult.data.target_user_id) {
+        await adminClient
+          .from("users")
+          .update({ status: "CYCLE_COMPLETE", can_use_ticket: true })
+          .eq("id", assignmentResult.data.target_user_id)
+          .eq("status", "WAITING_FOR_FULFILLMENT");
+      }
+    } else {
+      await adminClient
+        .from("wishlist_assignments")
+        .update({ status: "pending", purchase_id: null, submitted_at: null, completed_at: null })
+        .eq("id", assignmentResult.data.id);
+    }
+  }
+
+  await adminClient.from("fulfillment_events").insert({
+    purchase_id: purchaseId,
+    assignment_id: assignmentResult.data?.id ?? null,
+    buyer_id: purchaseResult.data.user_id,
+    recipient_id: assignmentResult.data?.target_user_id ?? null,
+    status: action === "approve" ? "completed" : "rejected",
+    screenshot_url: purchaseResult.data.screenshot_url,
+    buyer_notes: purchaseResult.data.notes ?? null,
+    purchase_created_at: purchaseResult.data.created_at,
+  });
 
   return NextResponse.json({ ok: true });
 }
