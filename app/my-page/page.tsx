@@ -17,6 +17,18 @@ const statusLabel: Record<string, string> = {
   CYCLE_COMPLETE: "サイクル完了！次へ進めます",
 };
 
+const STATUS_STEPS: { value: string; label: string }[] = [
+  { value: "AWAITING_TOS_AGREEMENT", label: "規約同意" },
+  { value: "AWAITING_GUIDE_CHECK", label: "ガイド確認" },
+  { value: "READY_TO_PURCHASE", label: "購入ステップ" },
+  { value: "AWAITING_APPROVAL", label: "承認待ち" },
+  { value: "READY_TO_REGISTER_WISHLIST", label: "リスト登録" },
+  { value: "READY_TO_DRAW", label: "りんご抽選" },
+  { value: "REVEALING", label: "結果演出" },
+  { value: "WAITING_FOR_FULFILLMENT", label: "購入待ち" },
+  { value: "CYCLE_COMPLETE", label: "サイクル完了" },
+];
+
 const cta: Record<string, string> = {
   AWAITING_TOS_AGREEMENT: "規約に同意する",
   AWAITING_GUIDE_CHECK: "使い方を見る",
@@ -118,6 +130,20 @@ export default function MyPage() {
     }
     return baseLink;
   }, [currentStatus, latestAppleId, baseLink]);
+
+  const currentStepIndex = useMemo(() => {
+    const index = STATUS_STEPS.findIndex((step) => step.value === currentStatus);
+    if (index === -1) {
+      return STATUS_STEPS.length - 1;
+    }
+    return index;
+  }, [currentStatus]);
+
+  const nextStepLabel = useMemo(() => {
+    const nextStep = STATUS_STEPS[currentStepIndex + 1];
+    if (!nextStep) return null;
+    return statusLabel[nextStep.value] ?? `${nextStep.label}へ進みます`;
+  }, [currentStepIndex]);
 
   const loadOverview = useCallback(async () => {
     setOverviewStatus("loading");
@@ -303,6 +329,27 @@ export default function MyPage() {
 
         <div className="bg-white/60 rounded-3xl p-8 mb-8 border border-[#FFD1DC] shadow-sm text-center relative overflow-hidden">
            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#FFD1DC] via-[#FF8FA3] to-[#FFD1DC]" />
+
+           <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
+             {STATUS_STEPS.map((step, index) => {
+               const isCurrent = index === currentStepIndex;
+               const isCompleted = index < currentStepIndex;
+               return (
+                 <div
+                   key={step.value}
+                   className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                     isCurrent
+                       ? "bg-[#FF8FA3] text-white"
+                       : isCompleted
+                         ? "bg-[#FFE4EC] text-[#FF5C8D]"
+                         : "bg-[#F1F1F1] text-[#9E8B8F]"
+                   }`}
+                 >
+                   {step.label}
+                 </div>
+               );
+             })}
+           </div>
            
            <div className="text-6xl mb-4 animate-float">{icon}</div>
            
@@ -310,6 +357,10 @@ export default function MyPage() {
              <div className="text-xs font-bold text-[#FF8FA3] tracking-widest uppercase">Current Status</div>
              <div className="text-lg font-bold text-[#5D4037]">{label}</div>
            </div>
+
+           {nextStepLabel && (
+             <p className="mt-3 text-xs text-[#5D4037]/70">次のステップ: {nextStepLabel}</p>
+           )}
 
            {revealLink && actionText && (
              <button
