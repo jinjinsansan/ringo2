@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabaseClient";
 
+const LINE_URL = process.env.NEXT_PUBLIC_LINE_URL ?? "https://lin.ee/lhRkKd8";
+
 const navLinks = [
   { label: "利用規約", href: "/tos" },
   { label: "プライバシーポリシー", href: "/privacy" },
   { label: "使い方", href: "/guide" },
-  { label: "お問い合わせ", href: "#contact" },
+  { label: "お問い合わせ", href: LINE_URL, external: true },
 ];
 
 export default function Header() {
@@ -53,15 +55,27 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm font-medium md:flex">
-          {navItems.map((item) => (
-            <Link 
-              key={item.label} 
-              href={item.href} 
-              className="text-[#5D4037] hover:text-[#FF8FA3] transition-colors"
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map((item) =>
+            item.external ? (
+              <a
+                key={item.label}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#5D4037] hover:text-[#FF8FA3] transition-colors"
+              >
+                {item.label}
+              </a>
+            ) : (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="text-[#5D4037] hover:text-[#FF8FA3] transition-colors"
+              >
+                {item.label}
+              </Link>
+            ),
+          )}
           <div className="flex items-center gap-4 ml-4">
             {isLoggedIn ? (
               <>
@@ -118,16 +132,29 @@ export default function Header() {
       {/* Mobile Menu */}
       {menuOpen && (
         <div className="absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-t border-white/20 p-6 flex flex-col gap-6 shadow-xl md:hidden animate-fade-up">
-          {navItems.map((item) => (
-            <Link 
-              key={item.label} 
-              href={item.href} 
-              className="text-lg font-medium text-[#5D4037]" 
-              onClick={() => setMenuOpen(false)}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map((item) =>
+            item.external ? (
+              <a
+                key={item.label}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                className="text-lg font-medium text-[#5D4037]"
+                onClick={() => setMenuOpen(false)}
+              >
+                {item.label}
+              </a>
+            ) : (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="text-lg font-medium text-[#5D4037]"
+                onClick={() => setMenuOpen(false)}
+              >
+                {item.label}
+              </Link>
+            ),
+          )}
           <div className="flex flex-col gap-3 mt-2">
             {isLoggedIn ? (
               <>

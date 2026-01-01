@@ -6,6 +6,62 @@ import { FlowGuard } from "@/components/FlowGuard";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/lib/supabaseClient";
 
+const appleTypes = [
+  {
+    title: "ブロンズりんご",
+    description: "もっとも多く登場する基本のりんご。誰かの欲しいものを購入し合う“物々交換”が成立します。",
+    accent: "bg-gradient-to-br from-[#FDECEF] to-[#FFF5F7]",
+    badge: "交換成立",
+  },
+  {
+    title: "シルバーりんご",
+    description: "毒りんごがストックされた分だけ開放される特別枠。自分の購入が免除され、次回の抽選も優先されます。",
+    accent: "bg-gradient-to-br from-[#EEF2FF] to-[#F7F9FF]",
+    badge: "優待",
+  },
+  {
+    title: "ゴールドりんご",
+    description: "超レア報酬。豪華ギフトが確約されるほか、コミュニティ内でスポットライトが当たります。",
+    accent: "bg-gradient-to-br from-[#FFF5D6] to-[#FFF3E0]",
+    badge: "特別",
+  },
+  {
+    title: "赤りんご",
+    description: "ピンポイントで嬉しいボーナス。季節のキャンペーンやシークレット演出でのみ登場します。",
+    accent: "bg-gradient-to-br from-[#FFE3E3] to-[#FFF2F2]",
+    badge: "キャンペーン",
+  },
+  {
+    title: "毒りんご",
+    description: "誰かが毒りんごを引くと、別の誰かに上位りんごの権利がストックされます。負けがあるから勝ちも生まれる仕組みです。",
+    accent: "bg-gradient-to-br from-[#FBE7FF] to-[#FFF0FF]",
+    badge: "リセット",
+  },
+];
+
+const privacyLinks = [
+  {
+    title: "Amazonほしい物リストを匿名で公開する方法",
+    description: "受取人名・住所をニックネーム化して安全に共有する手順をマイナビの記事で解説。",
+    href: "https://news.mynavi.jp/article/20230920-2775392/",
+    color: "from-[#FFE1ED] to-[#FFF5FA]",
+  },
+  {
+    title: "匿名でプレゼントを贈る方法",
+    description: "送り主の氏名を出さずにギフト設定する注意点をまとめたガイド。",
+    href: "https://news.mynavi.jp/article/20230930-2781642/",
+    color: "from-[#E4FFF2] to-[#F6FFF9]",
+  },
+];
+
+const troubleshooting = [
+  "スクショ提出後に画面が進まない場合は、アップロード先のURLをコピーしてLINEで送ってください。",
+  "抽選結果が表示されないときは、ブラウザを更新しても変わらなければ公式LINEでIDを共有してください。",
+  "欲しいものリストを編集できない場合は、ステータスがREADY_TO_REGISTER_WISHLISTになるまで待つか運営へ連絡してください。",
+];
+
+const LINE_URL = process.env.NEXT_PUBLIC_LINE_URL ?? "https://lin.ee/lhRkKd8";
+
 export default function GuidePage() {
   const { refresh } = useUser();
   const router = useRouter();
@@ -107,6 +163,88 @@ export default function GuidePage() {
                 </div>
               ))}
             </div>
+
+            <section className="mb-12 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-sm">
+              <div className="flex flex-col gap-6">
+                <div>
+                  <p className="text-xs font-bold text-[#FF8FA3] uppercase tracking-[0.4em]">Apple Types</p>
+                  <h2 className="font-heading text-2xl text-[#5D4037] mt-1">りんごの種類と効果</h2>
+                  <p className="text-sm text-[#5D4037]/70 mt-2">
+                    ブロンズは“物々交換”の基本。毒りんごが出るたびに上位りんごのチャンスがストックされ、シルバー・ゴールド・赤が順番に解放されます。
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {appleTypes.map((apple) => (
+                    <div key={apple.title} className={`rounded-3xl border border-white/60 p-4 shadow-inner ${apple.accent}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-bold uppercase tracking-[0.4em] text-[#b45364]">{apple.badge}</p>
+                        <span className="text-xl">🍎</span>
+                      </div>
+                      <h3 className="font-heading text-lg text-[#5D4037]">{apple.title}</h3>
+                      <p className="text-sm text-[#5D4037]/70 mt-2 leading-relaxed">{apple.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="mb-12 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-sm">
+              <div className="flex flex-col gap-6">
+                <div>
+                  <p className="text-xs font-bold text-[#38A169] uppercase tracking-[0.4em]">Privacy Guides</p>
+                  <h2 className="font-heading text-2xl text-[#2E5939] mt-1">匿名設定はここをチェック</h2>
+                  <p className="text-sm text-[#2E5939]/70 mt-2">
+                    Amazonのルールを誤ると住所や本名が露出します。マイナビの記事で紹介されている安全手順を事前に確認しましょう。
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {privacyLinks.map((resource) => (
+                    <a
+                      key={resource.href}
+                      href={resource.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`rounded-3xl border border-white/60 bg-gradient-to-br ${resource.color} p-5 shadow transition hover:shadow-lg`}
+                    >
+                      <p className="text-xs font-bold text-[#5D4037]/70">Mynavi News</p>
+                      <h3 className="font-heading text-lg text-[#5D4037] mt-2">{resource.title}</h3>
+                      <p className="text-sm text-[#5D4037]/70 mt-2">{resource.description}</p>
+                      <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-[#FF8FA3]">
+                        記事を読む →
+                      </span>
+                    </a>
+                  ))}
+                </div>
+                <div className="rounded-2xl border border-dashed border-[#FF8FA3]/60 bg-white/60 p-4 text-xs text-[#5D4037]/70">
+                  <p className="font-bold text-[#FF5C8D] mb-1">Droidからのアドバイス</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>マイページ内の「匿名ガイド」カードからも同じ内容をいつでも読み返せます。</li>
+                    <li>アカウント名よりも「受取人/住所のニックネーム設定」を優先して確認してください。</li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+
+            <section className="mb-12 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-sm">
+              <p className="text-xs font-bold text-[#5D4037]/70 uppercase tracking-[0.4em]">Support</p>
+              <h2 className="font-heading text-2xl text-[#5D4037] mt-1">不具合かな？と思ったら</h2>
+              <p className="text-sm text-[#5D4037]/70 mt-2">以下を試しても解消しない場合は公式LINEへご連絡ください。</p>
+              <ul className="mt-4 space-y-3 text-sm text-[#5D4037]/80">
+                {troubleshooting.map((tip) => (
+                  <li key={tip} className="rounded-2xl border border-[#FFD1DC] bg-[#FFF5F7] px-4 py-3">
+                    {tip}
+                  </li>
+                ))}
+              </ul>
+              <a
+                href={LINE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-[#06C755] px-6 py-3 text-white font-bold text-sm shadow-lg hover:brightness-105"
+              >
+                <span className="text-lg">💬</span> 公式LINEで相談する
+              </a>
+            </section>
 
             {error && (
               <div className="mb-6 p-4 bg-[#FFEBEE] text-red-700 border border-red-200 rounded-xl text-sm font-bold text-center animate-fade-up">
