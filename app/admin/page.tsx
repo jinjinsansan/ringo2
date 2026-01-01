@@ -30,6 +30,19 @@ type DashboardResponse = {
   generatedAt: string;
 };
 
+type ResetSummary = {
+  email: string;
+  userId: string;
+  resetTo: string;
+  deleted: {
+    assignments: number;
+    purchases: number;
+    apples: number;
+    fulfillmentEvents: number;
+    wishlists: number;
+  };
+};
+
 const STATUS_LABELS: Record<string, string> = {
   AWAITING_TOS_AGREEMENT: "規約同意待ち",
   AWAITING_GUIDE_CHECK: "使い方確認待ち",
@@ -48,6 +61,11 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [search, setSearch] = useState("");
+  const [testEmail, setTestEmail] = useState("goldbenchan@gmail.com");
+  const [testStatus, setTestStatus] = useState("READY_TO_PURCHASE");
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSummary, setResetSummary] = useState<ResetSummary | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -82,6 +100,46 @@ export default function AdminDashboardPage() {
       setLoading(false);
     }
   }, []);
+
+  const handleTestReset = useCallback(async () => {
+    const email = testEmail.trim();
+    if (!email) {
+      setResetError("リセット対象メールを入力してください");
+      return;
+    }
+    setResetting(true);
+    setResetError(null);
+    setResetSummary(null);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setResetError("管理者としてログインしてください");
+      setResetting(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/test/reset", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, targetStatus: testStatus }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setResetError(body.error ?? "リセットに失敗しました");
+      } else {
+        setResetSummary((body.summary as ResetSummary | undefined) ?? null);
+        await fetchData();
+      }
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : "通信に失敗しました");
+    } finally {
+      setResetting(false);
+    }
+  }, [fetchData, testEmail, testStatus]);
 
   useEffect(() => {
     void fetchData();
@@ -178,6 +236,77 @@ export default function AdminDashboardPage() {
               </a>
             ))}
           </div>
+        </section>
+
+        <section className="rounded-3xl border border-[#FFE4EC] bg-white/80 p-6 shadow-md space-y-4">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="font-heading text-xl text-[#5C4033]">テストユーザーリセット</h2>
+              <p className="text-sm text-[#5C4033]/70">指定したメールアドレスのユーザーを初期状態へ戻し、再テストできます。</p>
+            </div>
+            <p className="text-xs text-[#5C4033]/60">管理者のみ利用できます</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="md:col-span-2 space-y-1">
+              <label htmlFor="test-email" className="text-xs font-semibold text-[#FF5C8D] uppercase tracking-[0.3em]">
+                EMAIL
+              </label>
+              <input
+                id="test-email"
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="test@example.com"
+                className="w-full rounded-2xl border border-[#FFD1DC] bg-white/70 px-4 py-2 text-sm outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="test-status" className="text-xs font-semibold text-[#FF5C8D] uppercase tracking-[0.3em]">
+                STATUS AFTER RESET
+              </label>
+              <select
+                id="test-status"
+                value={testStatus}
+                onChange={(e) => setTestStatus(e.target.value)}
+                className="w-full rounded-2xl border border-[#FFD1DC] bg-white/70 px-3 py-2 text-sm outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
+              >
+                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <button
+              onClick={() => void handleTestReset()}
+              disabled={resetting}
+              className="w-full md:w-auto rounded-full bg-[#FF8FA3] px-6 py-2 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-60"
+            >
+              {resetting ? "リセット中..." : "テストユーザーをリセット"}
+            </button>
+            {resetError && <p className="text-sm text-red-600">{resetError}</p>}
+          </div>
+          {resetSummary && (
+            <div className="rounded-2xl border border-[#FFD1DC] bg-[#FFF5F7] p-4 text-sm text-[#5C4033] space-y-2">
+              <p className="font-semibold">
+                {resetSummary.email} を {STATUS_LABELS[resetSummary.resetTo] ?? resetSummary.resetTo} にリセットしました。
+              </p>
+              <div className="grid gap-2 md:grid-cols-2">
+                <ul className="space-y-1">
+                  <li>Assignments: {resetSummary.deleted.assignments}</li>
+                  <li>Purchases: {resetSummary.deleted.purchases}</li>
+                  <li>Apples: {resetSummary.deleted.apples}</li>
+                </ul>
+                <ul className="space-y-1">
+                  <li>Fulfillment logs: {resetSummary.deleted.fulfillmentEvents}</li>
+                  <li>Wishlists: {resetSummary.deleted.wishlists}</li>
+                  <li>User ID: {resetSummary.userId}</li>
+                </ul>
+              </div>
+            </div>
+          )}
         </section>
 
         {data ? (

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 export type AuthUserMapEntry = {
   email: string | null;
@@ -57,4 +57,34 @@ export async function fetchAuthUsers(client: SupabaseClient | null, userIds: str
   }
 
   return map;
+}
+
+export async function findAuthUserByEmail(client: SupabaseClient | null, email: string): Promise<User | null> {
+  if (!client || !email) return null;
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+
+  try {
+    const perPage = 100;
+    let page = 1;
+    while (true) {
+      const { data, error } = await client.auth.admin.listUsers({ page, perPage });
+      if (error) {
+        throw error;
+      }
+      const users = data?.users ?? [];
+      const found = users.find((user) => (user.email ?? "").toLowerCase() === normalized);
+      if (found) {
+        return found;
+      }
+      if (users.length < perPage) {
+        break;
+      }
+      page += 1;
+    }
+  } catch (error) {
+    console.error("Failed to find auth user by email", email, error);
+  }
+
+  return null;
 }
