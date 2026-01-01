@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 import { ensureReferralCode } from "@/lib/referrals";
+import { listAllAuthUsers } from "@/lib/adminUsers";
 
 export async function GET(req: NextRequest) {
   const auth = await authenticateRequest(req);
@@ -16,7 +17,6 @@ export async function GET(req: NextRequest) {
   const userId = auth.userId;
 
   let supportsReferralCode = true;
-  let supportsReferralFriends = true;
   let referralCode: string | null = null;
   let referralCount = 0;
   let referralFriends: { id: string; status: string; joinedAt: string; wishlistUrl: string | null }[] = [];
@@ -67,36 +67,30 @@ export async function GET(req: NextRequest) {
     supportsReferralCode = false;
   }
 
-  if (supportsReferralCode) {
-    const referralRes = await adminClient
-      .from("users")
-      .select("id, status, created_at, wishlist_url")
-      .eq("referred_by", userId)
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (referralRes.error) {
-      const message = referralRes.error.message ?? "Failed to load referrals";
-      if (message.includes("referred_by")) {
-        supportsReferralFriends = false;
-      } else {
-        return NextResponse.json({ error: message }, { status: 500 });
-      }
-    } else {
-      referralFriends = (referralRes.data ?? []).map((friend) => ({
-        id: friend.id,
-        status: friend.status,
-        joinedAt: friend.created_at,
-        wishlistUrl: friend.wishlist_url,
-      }));
-    }
-  }
-
   if (supportsReferralCode && !referralCode) {
     try {
       referralCode = (await ensureReferralCode(adminClient, userId)) ?? null;
     } catch {
       supportsReferralCode = false;
+    }
+  }
+
+  if (supportsReferralCode) {
+    const authUsers = await listAllAuthUsers(adminClient);
+    const invitedAuthUsers = authUsers.filter((user) => user.user_metadata?.referred_by === userId);
+    referralCount = invitedAuthUsers.length;
+    const invitedIds = invitedAuthUsers.map((user) => user.id);
+    if (invitedIds.length > 0) {
+      const { data: invitedProfiles } = await adminClient
+        .from("users")
+        .select("id, status, created_at, wishlist_url")
+        .in("id", invitedIds);
+      referralFriends = (invitedProfiles ?? []).map((profile) => ({
+        id: profile.id,
+        status: profile.status,
+        joinedAt: profile.created_at,
+        wishlistUrl: profile.wishlist_url,
+      }));
     }
   }
 
@@ -119,7 +113,7 @@ export async function GET(req: NextRequest) {
     referral: {
       code: supportsReferralCode ? referralCode : null,
       count: supportsReferralCode ? referralCount : 0,
-      friends: supportsReferralFriends ? referralFriends : [],
+      friends: supportsReferralCode ? referralFriends : [],
     },
     appleHistory: appleRes.data ?? [],
     purchaseHistory: purchaseRes.data ?? [],
