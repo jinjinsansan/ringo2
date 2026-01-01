@@ -32,6 +32,27 @@ const baseProbabilities: Record<Result, number> = {
   red: 0.1,
 };
 
+const resultMeta: Record<Result, { label: string; color: string }> = {
+  poison: { label: "毒りんご", color: "#4CAF50" },
+  bronze: { label: "ブロンズりんご", color: "#CD7F32" },
+  silver: { label: "シルバーりんご", color: "#C0C0C0" },
+  gold: { label: "ゴールドりんご", color: "#F5C518" },
+  red: { label: "赤りんご", color: "#E53935" },
+};
+
+function AppleIcon({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className="h-9 w-9 drop-shadow" role="img" aria-hidden="true">
+      <path
+        d="M16 4c-1.42 0-2.66.94-3.12 2.34-.19.59-.27 1.24-.27 1.9-4.41.32-7.61 3.96-7.61 8.56C5 22.74 8.82 27 13.76 27h4.48C23.18 27 27 22.74 27 16.8c0-4.6-3.2-8.24-7.61-8.56-.06-.66-.15-1.31-.34-1.9C18.66 4.94 17.42 4 16 4z"
+        fill={color}
+      />
+      <path d="M19.5 3.2c.3 1.52 1.7 2.72 3.36 2.72h2.18" stroke="#3A3A3A" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+      <path d="M18.5 2.5c0 1.3 1.05 2.35 2.35 2.35h2.15" stroke="#2F855A" strokeWidth="1.3" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}
+
 function getBoostedProbabilities(referralCount: number | null | undefined) {
   const count = typeof referralCount === "number" && referralCount > 0 ? referralCount : 0;
   if (!count) return baseProbabilities;
@@ -234,7 +255,7 @@ export default function RevealPage() {
               <h1 className="font-heading text-4xl font-bold text-[#5D4037]">抽選結果</h1>
               {!loading && !message && (
                 <p className="mt-2 text-base font-semibold text-[#FF6B8B]">
-                  {isRevealed ? "ドキドキの結果が届きました！" : "幻想的な1時間の演出が進行中です..."}
+                  {isRevealed ? "ドキドキの結果が届きました！" : "結果を紡ぐセレモニーが静かに進んでいます..."}
                 </p>
               )}
             </div>
@@ -304,7 +325,7 @@ export default function RevealPage() {
                       ? "結果データを取得しています... 少々お待ちください。"
                       : fakeActive
                         ? "ラストスパート！眩いカードが高速で入れ替わっています。"
-                        : "幻想的なフィルタの奥から少しずつ輪郭が現れています。"}
+                        : "柔らかなフィルタの向こうでカードの輪郭がじわじわ浮かび上がっています。"}
                   </p>
                 )}
               </div>
@@ -333,8 +354,8 @@ export default function RevealPage() {
                       className="flex items-center justify-between rounded-2xl border border-[#FFE2EA] bg-white/90 px-4 py-3 shadow-sm"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-xl">{resultKey === "poison" ? "☠️" : resultKey === "bronze" ? "🥉" : resultKey === "silver" ? "🥈" : resultKey === "gold" ? "🥇" : "🍎"}</span>
-                        <span className="text-sm font-semibold text-[#5D4037] capitalize">{resultKey} Apple</span>
+                        <AppleIcon color={resultMeta[resultKey].color} />
+                        <span className="text-sm font-semibold text-[#5D4037]">{resultMeta[resultKey].label}</span>
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-heading text-[#FF5C8D]">{value.toFixed(value < 1 ? 2 : 1)}%</p>
@@ -382,11 +403,11 @@ export default function RevealPage() {
                     <span className="font-heading text-xl text-[#FF5C8D]">{referralCount}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>次のボーナスまで</span>
+                    <span>次の確率UPまで</span>
                     <span className="font-heading text-xl text-[#5D4037]">{nextBonusIn} 人</span>
                   </div>
                   <p className="text-xs text-[#5D4037]/60">
-                    3人紹介するごとに毒りんご率がさらに4.5%下がり、他のりんごがリッチになります。
+                    3人紹介するごとに上位りんごが当たる確率が上昇します。
                   </p>
                 </div>
               </div>
