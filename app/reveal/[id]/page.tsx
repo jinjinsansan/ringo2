@@ -201,6 +201,16 @@ export default function RevealPage() {
   }, [remaining, fakePlayed, apple]);
 
   useEffect(() => {
+    if (apple?.result && fakeActive) {
+      const id = setTimeout(() => {
+        setFakeActive(false);
+        setFakePlayed(true);
+      }, 0);
+      return () => clearTimeout(id);
+    }
+  }, [apple, fakeActive]);
+
+  useEffect(() => {
     if (!apple) return;
     if (apple.result) return;
     if (remaining === null || remaining > 0) return;
