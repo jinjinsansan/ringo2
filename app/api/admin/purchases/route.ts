@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 import { isAdminBypassEmail } from "@/lib/adminBypass";
 import { fetchAuthUsers } from "@/lib/adminUsers";
+import { buildWishlistFulfilledEmail } from "@/lib/emailTemplates";
+import { dispatchNotifications } from "@/lib/notifications";
 
 const screenshotBucket = process.env.SUPABASE_SCREENSHOT_BUCKET;
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://ringokai.app";
 export async function GET(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if ("error" in auth || !isAdminBypassEmail(auth.email)) {
@@ -219,6 +222,45 @@ export async function POST(req: NextRequest) {
           .update({ status: "CYCLE_COMPLETE", can_use_ticket: true })
           .eq("id", assignmentResult.data.target_user_id)
           .eq("status", "WAITING_FOR_FULFILLMENT");
+
+        const targetUserId = assignmentResult.data.target_user_id;
+        const [{ data: wishlist }] = await Promise.all([
+          adminClient
+            .from("wishlists")
+            .select("primary_item_name")
+            .eq("user_id", targetUserId)
+            .maybeSingle(),
+        ]);
+
+        const authMap = await fetchAuthUsers(adminClient, [targetUserId]);
+        const targetEmail = authMap.get(targetUserId)?.email ?? null;
+        const template = buildWishlistFulfilledEmail({
+          wishlistName: wishlist?.primary_item_name ?? null,
+          myPageUrl: `${appUrl}/my-page`,
+        });
+
+        await dispatchNotifications(adminClient, [
+          {
+            userId: targetUserId,
+            title: "あなたの欲しいものが購入されました",
+            body: "発送状況はマイページでご確認ください。",
+            category: "wishlist_fulfilled",
+            metadata: { assignmentId: assignmentResult.data.id, purchaseId },
+            email: targetEmail
+              ? {
+                  to: targetEmail,
+                  subject: template.subject,
+                  html: template.html,
+                  text: template.text,
+                }
+              : null,
+          },
+        ]);
+
+        await adminClient
+          .from("wishlist_assignments")
+          .update({ recipient_notified_at: new Date().toISOString() })
+          .eq("id", assignmentResult.data.id);
       }
     } else {
       await adminClient

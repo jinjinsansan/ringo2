@@ -186,6 +186,13 @@ export default function AdminDashboardPage() {
       accent: "bg-[#E8F5E9]",
       icon: "🤝",
     },
+    {
+      title: "メルマガ配信",
+      description: "全ユーザー向けにお知らせメールを配信",
+      href: "/admin/newsletters",
+      accent: "bg-[#E0E7FF]",
+      icon: "📰",
+    },
   ];
 
   return (

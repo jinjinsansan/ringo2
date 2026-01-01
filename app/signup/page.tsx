@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -24,21 +23,27 @@ function SignupPageContent() {
     setStatus("loading");
     setMessage("");
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (error) {
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus("error");
+        setMessage(body.error ?? "登録に失敗しました");
+        return;
+      }
+    } catch (error) {
       setStatus("error");
-      setMessage(error.message ?? "登録に失敗しました");
+      setMessage(error instanceof Error ? error.message : "通信に失敗しました");
       return;
     }
 
-    // users 行を作成（RLSで insert 許可が必要）
-    if (data.user) {
-      await supabase.from("users").upsert({ id: data.user.id }).select();
-    }
-
     setStatus("success");
-    setMessage("登録しました。確認メールをご確認ください。");
+    setMessage("登録しました。メールに届いた確認リンクをご確認ください。");
     setEmail("");
     setPassword("");
   };

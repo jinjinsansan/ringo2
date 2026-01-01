@@ -104,6 +104,16 @@ type OverviewData = {
   };
 };
 
+type NotificationItem = {
+  id: string;
+  title: string;
+  body: string;
+  category: string;
+  created_at: string;
+  read_at: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
 export default function MyPage() {
   const { user, loading, refresh } = useUser();
   const router = useRouter();
@@ -114,6 +124,11 @@ export default function MyPage() {
   const [overviewStatus, setOverviewStatus] = useState<"idle" | "loading" | "error">("loading");
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [referralCopied, setReferralCopied] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notificationStatus, setNotificationStatus] = useState<"idle" | "loading" | "error">("loading");
+  const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [notificationRefreshing, setNotificationRefreshing] = useState(false);
 
   const currentStatus = user?.status ?? "";
   const label = useMemo(() => statusLabel[currentStatus] ?? "状態を取得できません", [currentStatus]);
@@ -175,6 +190,42 @@ export default function MyPage() {
     setOverviewStatus("idle");
   }, []);
 
+  const fetchNotifications = useCallback(async () => {
+    setNotificationRefreshing(true);
+    setNotificationError(null);
+    setNotificationStatus("loading");
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setNotificationStatus("error");
+      setNotificationError("ログインが必要です");
+      setNotificationRefreshing(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/notifications?limit=20`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const body = await res.json().catch(() => ({ error: "お知らせの取得に失敗しました" }));
+      if (!res.ok) {
+        setNotificationStatus("error");
+        setNotificationError(body.error ?? "お知らせの取得に失敗しました");
+        return;
+      }
+
+      setNotifications(body.notifications ?? []);
+      setUnreadNotifications(body.unreadCount ?? 0);
+      setNotificationStatus("idle");
+    } catch (error) {
+      setNotificationStatus("error");
+      setNotificationError(error instanceof Error ? error.message : "お知らせの取得に失敗しました");
+    } finally {
+      setNotificationRefreshing(false);
+    }
+  }, []);
+
   const hasTicketOption = useMemo(() => {
     if (!user) return false;
     if (currentStatus !== "CYCLE_COMPLETE") return false;
@@ -187,6 +238,13 @@ export default function MyPage() {
       void loadOverview();
     });
   }, [loadOverview]);
+
+  useEffect(() => {
+    if (!user) return;
+    queueMicrotask(() => {
+      void fetchNotifications();
+    });
+  }, [user, fetchNotifications]);
 
   useEffect(() => {
     if (currentStatus !== "REVEALING") {
@@ -254,8 +312,49 @@ export default function MyPage() {
   };
 
   const handleFullRefresh = useCallback(async () => {
-    await Promise.all([refresh(), loadOverview()]);
-  }, [refresh, loadOverview]);
+    await Promise.all([refresh(), loadOverview(), fetchNotifications()]);
+  }, [refresh, loadOverview, fetchNotifications]);
+
+  const handleMarkNotificationRead = useCallback(
+    async (notificationId: string) => {
+      const target = notifications.find((item) => item.id === notificationId);
+      if (!target || target.read_at) return;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const res = await fetch(`/api/notifications/${notificationId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (res.ok) {
+        const now = new Date().toISOString();
+        setNotifications((prev) => prev.map((item) => (item.id === notificationId ? { ...item, read_at: now } : item)));
+        setUnreadNotifications((prev) => Math.max(0, prev - 1));
+      }
+    },
+    [notifications]
+  );
+
+  const handleMarkAllNotificationsRead = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+
+    const res = await fetch("/api/notifications/read-all", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (res.ok) {
+      const now = new Date().toISOString();
+      setNotifications((prev) => prev.map((item) => (item.read_at ? item : { ...item, read_at: now })));
+      setUnreadNotifications(0);
+    }
+  }, []);
 
   const [referralEnsuring, setReferralEnsuring] = useState(false);
   const [referralEnsureError, setReferralEnsureError] = useState<string | null>(null);
@@ -514,6 +613,81 @@ export default function MyPage() {
             </div>
           </div>
         </div>
+
+        <section className="mb-8 rounded-3xl border border-[#FFE4EC] bg-white/80 p-6 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-bold text-[#FF8FA3] tracking-[0.3em] uppercase">Inbox</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="font-heading text-2xl text-[#5D4037]">お知らせ受信箱</h2>
+                {unreadNotifications > 0 && (
+                  <span className="rounded-full bg-[#FF8FA3] px-3 py-1 text-xs font-bold text-white">
+                    未読 {unreadNotifications} 件
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-[#5D4037]/70 mt-1">抽選結果や発送完了などの重要なお知らせがここに届きます。</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => void fetchNotifications()}
+                disabled={notificationRefreshing}
+                className="rounded-full border border-[#FFD1DC] px-4 py-2 text-xs font-bold text-[#5D4037] hover:bg-white disabled:opacity-60"
+              >
+                {notificationRefreshing ? "更新中..." : "最新に更新"}
+              </button>
+              <button
+                onClick={() => void handleMarkAllNotificationsRead()}
+                disabled={unreadNotifications === 0}
+                className="rounded-full border border-[#FF8FA3] px-4 py-2 text-xs font-bold text-[#FF8FA3] hover:bg-[#FF8FA3]/10 disabled:opacity-40"
+              >
+                すべて既読にする
+              </button>
+            </div>
+          </div>
+
+          {notificationStatus === "loading" && notifications.length === 0 ? (
+            <div className="mt-6 flex items-center gap-3 text-sm text-[#5D4037]/70">
+              <div className="h-3 w-3 animate-ping rounded-full bg-[#FF8FA3]" />
+              お知らせを読み込んでいます...
+            </div>
+          ) : notificationError ? (
+            <div className="mt-6 rounded-2xl border border-red-100 bg-red-50/70 p-4 text-sm text-red-700">
+              {notificationError}
+            </div>
+          ) : (
+            <div className="mt-6 space-y-3">
+              {notifications.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-[#FFD1DC] bg-white/70 px-4 py-6 text-center text-sm text-[#5D4037]/70">
+                  まだお知らせはありません。抽選結果や購入完了時に通知が届きます。
+                </p>
+              ) : (
+                notifications.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => void handleMarkNotificationRead(item.id)}
+                    className={`w-full text-left rounded-2xl border px-5 py-4 transition shadow-sm ${
+                      item.read_at ? "border-white bg-white/70" : "border-[#FFD1DC] bg-[#FFF5F7]"
+                    }`}
+                  >
+                    <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                      <p className={`text-sm font-bold ${item.read_at ? "text-[#5D4037]/70" : "text-[#5D4037]"}`}>
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-[#5D4037]/50">{formatDate(item.created_at)}</p>
+                    </div>
+                    <p className="mt-2 text-sm text-[#5D4037]/80 leading-relaxed">{item.body}</p>
+                    {!item.read_at && (
+                      <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-[#FF8FA3] px-3 py-1 text-xs font-bold text-white">
+                        ● 未読
+                      </span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </section>
 
         <div className="mb-8 rounded-3xl border border-white bg-white/70 p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4">

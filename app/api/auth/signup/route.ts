@@ -1,38 +1,54 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+import { getAdminClient } from "@/lib/serverSupabase";
+import { buildSignupEmail } from "@/lib/emailTemplates";
+import { sendEmailViaResend } from "@/lib/resendClient";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://ringokai.app";
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Supabase environment variables are not set");
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: "Email and password are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "メールアドレスとパスワードを入力してください" }, { status: 400 });
     }
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    const adminClient = getAdminClient();
+    if (!adminClient) {
+      return NextResponse.json({ error: "Server is not configured" }, { status: 500 });
     }
 
-    return NextResponse.json({ user: data.user }, { status: 200 });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Unexpected error. Please try again." },
-      { status: 500 }
-    );
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const redirectTo = `${appUrl}/login`;
+    const { data, error } = await adminClient.auth.admin.generateLink({
+      type: "signup",
+      email: normalizedEmail,
+      password,
+      options: {
+        redirectTo,
+      },
+    });
+
+    if (error || !data?.properties?.action_link) {
+      return NextResponse.json({ error: error?.message ?? "リンクの発行に失敗しました" }, { status: 400 });
+    }
+
+    const userId = data.user?.id;
+    if (userId) {
+      await adminClient.from("users").upsert({ id: userId });
+    }
+
+    const emailTemplate = buildSignupEmail(data.properties.action_link);
+    await sendEmailViaResend({
+      to: normalizedEmail,
+      subject: emailTemplate.subject,
+      html: emailTemplate.html,
+      text: emailTemplate.text,
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Signup API error", error);
+    return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
   }
 }

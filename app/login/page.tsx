@@ -112,12 +112,18 @@ export default function LoginPage() {
         </form>
         
         <div className="mt-8 text-center">
-          <p className="text-sm text-[#5D4037]/60">
-            まだアカウントをお持ちでない方は
-          </p>
-          <a href="/signup" className="inline-block mt-2 text-[#FF8FA3] font-bold hover:text-[#FF6B8B] hover:underline transition-all">
-            無料で新規登録する
-          </a>
+          <div className="space-y-3">
+            <p className="text-sm text-[#5D4037]/60">
+              まだアカウントをお持ちでない方は
+            </p>
+            <a href="/signup" className="inline-block text-[#FF8FA3] font-bold hover:text-[#FF6B8B] hover:underline transition-all">
+              無料で新規登録する
+            </a>
+            <p className="text-sm text-[#5D4037]/60">パスワードを忘れた場合は</p>
+            <a href="/login/reset" className="inline-block text-[#FF8FA3] font-bold hover:text-[#FF6B8B] hover:underline transition-all">
+              再設定メールを受け取る
+            </a>
+          </div>
         </div>
       </div>
     </div>
