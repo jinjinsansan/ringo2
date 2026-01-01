@@ -1,38 +1,20 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
+import { isAdminBypassEmail } from "@/lib/adminBypass";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const adminSecret = process.env.ADMIN_SECRET;
 const screenshotBucket = process.env.SUPABASE_SCREENSHOT_BUCKET;
-
-if (!supabaseUrl) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set");
-}
-
-const adminClient = serviceRoleKey
-  ? createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
-  : null;
-
-function checkAuth(req: Request) {
-  const headerSecret = req.headers.get("x-admin-secret");
-  if (!adminSecret || !headerSecret || headerSecret !== adminSecret) {
-    return false;
+export async function GET(req: NextRequest) {
+  const auth = await authenticateRequest(req);
+  if ("error" in auth || !isAdminBypassEmail(auth.email)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return true;
-}
 
-export async function GET(req: Request) {
+  const adminClient = getAdminClient();
   if (!adminClient) {
     return NextResponse.json(
       { error: "Service role key is not configured" },
       { status: 500 }
     );
-  }
-  if (!checkAuth(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { data, error } = await adminClient
@@ -65,15 +47,18 @@ export async function GET(req: Request) {
   return NextResponse.json({ purchases: purchasesWithUrls });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const auth = await authenticateRequest(req);
+  if ("error" in auth || !isAdminBypassEmail(auth.email)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const adminClient = getAdminClient();
   if (!adminClient) {
     return NextResponse.json(
       { error: "Service role key is not configured" },
       { status: 500 }
     );
-  }
-  if (!checkAuth(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { purchaseId, action, userId } = await req.json();

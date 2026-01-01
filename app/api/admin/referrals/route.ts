@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminClient } from "@/lib/serverSupabase";
+import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 import { fetchAuthUserMap } from "@/lib/adminUsers";
-
-function isAuthorized(req: NextRequest) {
-  const adminSecret = process.env.ADMIN_SECRET;
-  const headerSecret = req.headers.get("x-admin-secret");
-  return Boolean(adminSecret && headerSecret && adminSecret === headerSecret);
-}
+import { isAdminBypassEmail } from "@/lib/adminBypass";
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
+  const auth = await authenticateRequest(req);
+  if ("error" in auth || !isAdminBypassEmail(auth.email)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

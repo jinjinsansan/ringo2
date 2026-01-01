@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useAdminSecret } from "@/hooks/useAdminSecret";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type ReferralEntry = {
   rank: number;
@@ -32,22 +32,33 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function AdminReferralPage() {
-  const { secret, setSecret } = useAdminSecret();
   const [data, setData] = useState<ReferralResponse | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async () => {
-    if (!secret) {
-      setError("Admin Secretを入力してください");
+  const getToken = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setError("管理者としてログインしてください");
+      return null;
+    }
+    return session.access_token;
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    const token = await getToken();
+    if (!token) {
+      setData(null);
       return;
     }
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/referrals", {
-        headers: { "x-admin-secret": secret },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const body = await res.json();
       if (!res.ok) {
@@ -62,14 +73,14 @@ export default function AdminReferralPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken]);
 
   useEffect(() => {
-    if (secret) {
-      fetchData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const id = setTimeout(() => {
+      void fetchData();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [fetchData]);
 
   const filteredRanking = useMemo(() => {
     if (!data) return [];
@@ -87,16 +98,9 @@ export default function AdminReferralPage() {
           <h1 className="font-heading text-3xl font-bold text-[#FF5C8D]">友達紹介ランキング</h1>
           <p className="text-sm text-[#5C4033]/70 mt-1">紹介状況をサマリとランキングで確認できます。</p>
           <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
-            <input
-              type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder="Admin Secret"
-              className="w-full md:w-64 rounded-2xl border border-[#FFC0CB] bg-white/70 px-4 py-2 text-sm outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
-            />
             <button
               onClick={fetchData}
-              disabled={!secret || loading}
+              disabled={loading}
               className="w-full md:w-auto rounded-full bg-[#FF8FA3] px-6 py-2 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-60"
             >
               {loading ? "読み込み中..." : "最新情報を取得"}

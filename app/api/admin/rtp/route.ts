@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getAdminClient } from "@/lib/serverSupabase";
+import { authenticateRequest, getAdminClient } from "@/lib/serverSupabase";
 import { loadAppleWeights, computeRtpPercentage, APPLE_RESULT_ORDER, WEIGHT_KEY_MAP, type AppleWeights } from "@/lib/rtp";
+import { isAdminBypassEmail } from "@/lib/adminBypass";
 
 const ticketRewards: Record<string, number> = {
   bronze: 0,
@@ -10,12 +11,6 @@ const ticketRewards: Record<string, number> = {
   red: 5,
   poison: 0,
 };
-
-function isAuthorized(req: NextRequest) {
-  const adminSecret = process.env.ADMIN_SECRET;
-  const headerSecret = req.headers.get("x-admin-secret");
-  return Boolean(adminSecret && headerSecret && adminSecret === headerSecret);
-}
 
 async function fetchResultCounts(adminClient: SupabaseClient | null) {
   if (!adminClient) return null;
@@ -34,7 +29,8 @@ async function fetchResultCounts(adminClient: SupabaseClient | null) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
+  const auth = await authenticateRequest(req);
+  if ("error" in auth || !isAdminBypassEmail(auth.email)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -63,7 +59,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isAuthorized(req)) {
+  const auth = await authenticateRequest(req);
+  if ("error" in auth || !isAdminBypassEmail(auth.email)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

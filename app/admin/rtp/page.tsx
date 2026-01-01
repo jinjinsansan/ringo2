@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useAdminSecret } from "@/hooks/useAdminSecret";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type WeightKey = "poison" | "bronze" | "silver" | "gold" | "red";
 
@@ -25,7 +25,6 @@ const LABELS: Record<WeightKey, string> = {
 };
 
 export default function AdminRtpPage() {
-  const { secret, setSecret } = useAdminSecret();
   const [data, setData] = useState<RtpResponse | null>(null);
   const [weights, setWeights] = useState<Record<WeightKey, string>>({ poison: "", bronze: "", silver: "", gold: "", red: "" });
   const [loading, setLoading] = useState(false);
@@ -36,9 +35,21 @@ export default function AdminRtpPage() {
     return (Object.values(weights) as string[]).reduce((sum, value) => sum + (Number(value) || 0), 0);
   }, [weights]);
 
-  const fetchData = async () => {
-    if (!secret) {
-      setError("Admin Secretを入力してください");
+  const getToken = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setError("管理者としてログインしてください");
+      return null;
+    }
+    return session.access_token;
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    const token = await getToken();
+    if (!token) {
+      setData(null);
       return;
     }
     setLoading(true);
@@ -46,7 +57,7 @@ export default function AdminRtpPage() {
     setMessage(null);
     try {
       const res = await fetch("/api/admin/rtp", {
-        headers: { "x-admin-secret": secret },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const body = await res.json();
       if (!res.ok) {
@@ -66,24 +77,22 @@ export default function AdminRtpPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken]);
 
   useEffect(() => {
-    if (secret) {
-      fetchData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const id = setTimeout(() => {
+      void fetchData();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [fetchData]);
 
   const handleChange = (key: WeightKey, value: string) => {
     setWeights((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleUpdate = async () => {
-    if (!secret) {
-      setError("Admin Secretを入力してください");
-      return;
-    }
+    const token = await getToken();
+    if (!token) return;
     setLoading(true);
     setError(null);
     setMessage(null);
@@ -101,7 +110,7 @@ export default function AdminRtpPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-secret": secret,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -132,22 +141,15 @@ export default function AdminRtpPage() {
         <header className="rounded-3xl bg-white/80 px-6 py-8 shadow-lg border border-white">
           <h1 className="font-heading text-3xl font-bold text-[#FF5C8D]">RTP / 確率設定</h1>
           <p className="text-sm text-[#5C4033]/70 mt-1">各りんごの出現確率をメンテナンスできます。</p>
-          <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
-            <input
-              type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder="Admin Secret"
-              className="w-full md:w-64 rounded-2xl border border-[#FFC0CB] bg-white/70 px-4 py-2 text-sm outline-none focus:border-[#FF8FA3] focus:ring-4 focus:ring-[#FF8FA3]/20"
-            />
-            <button
-              onClick={fetchData}
-              disabled={!secret || loading}
-              className="w-full md:w-auto rounded-full bg-[#FF8FA3] px-6 py-2 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-60"
-            >
-              {loading ? "読み込み中..." : "現在の設定を取得"}
-            </button>
-          </div>
+            <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
+              <button
+                onClick={fetchData}
+                disabled={loading}
+                className="w-full md:w-auto rounded-full bg-[#FF8FA3] px-6 py-2 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-60"
+              >
+                {loading ? "読み込み中..." : "現在の設定を取得"}
+              </button>
+            </div>
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
           {message && <p className="mt-3 text-sm text-green-700">{message}</p>}
         </header>

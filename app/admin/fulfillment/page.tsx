@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type QueueItem = {
   id: string;
@@ -13,20 +14,34 @@ type QueueItem = {
 };
 
 export default function AdminFulfillmentPage() {
-  const [secret, setSecret] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
 
-  const fetchQueue = async () => {
-    if (!secret) return;
+  const getToken = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setError("管理者としてログインしてください");
+      return null;
+    }
+    return session.access_token;
+  }, []);
+
+  const fetchQueue = useCallback(async () => {
+    const token = await getToken();
+    if (!token) {
+      setQueue([]);
+      return;
+    }
     setLoading(true);
     setError(null);
     setMessage(null);
     const res = await fetch("/api/admin/fulfillments", {
       headers: {
-        "x-admin-secret": secret,
+        Authorization: `Bearer ${token}`,
       },
     });
     const data = await res.json();
@@ -37,29 +52,41 @@ export default function AdminFulfillmentPage() {
     }
     setQueue(data.queue ?? []);
     setLoading(false);
-  };
+  }, [getToken]);
 
-  const markFulfilled = async (userId: string) => {
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-    const res = await fetch("/api/admin/fulfillments", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-secret": secret,
-      },
-      body: JSON.stringify({ userId }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "処理に失敗しました");
-      setLoading(false);
-      return;
-    }
-    setMessage("完了としてマークしました");
-    await fetchQueue();
-  };
+  const markFulfilled = useCallback(
+    async (userId: string) => {
+      const token = await getToken();
+      if (!token) return;
+      setLoading(true);
+      setError(null);
+      setMessage(null);
+      const res = await fetch("/api/admin/fulfillments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "処理に失敗しました");
+        setLoading(false);
+        return;
+      }
+      setMessage("完了としてマークしました");
+      await fetchQueue();
+    },
+    [fetchQueue, getToken]
+  );
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      void fetchQueue();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [fetchQueue]);
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] px-4 py-12 text-[#5C4033]">
@@ -67,19 +94,12 @@ export default function AdminFulfillmentPage() {
         <h1 className="font-heading mb-6 text-2xl">管理者: プレゼント完了管理</h1>
 
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center">
-          <input
-            type="password"
-            placeholder="Admin Secret"
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
-            className="w-full md:w-64 rounded-lg border border-[#FFC0CB]/60 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#FFC0CB] focus:ring-2 focus:ring-[#FFC0CB]/50"
-          />
           <button
             onClick={fetchQueue}
-            disabled={!secret || loading}
+            disabled={loading}
             className="md:w-48 w-full rounded-full bg-[#FFC0CB] px-5 py-2 text-sm font-semibold text-[#5C4033] shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "読込中..." : "待機ユーザーを取得"}
+            {loading ? "読込中..." : "待機ユーザーを更新"}
           </button>
         </div>
 

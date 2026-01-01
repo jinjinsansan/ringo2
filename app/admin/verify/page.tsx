@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type Purchase = {
   id: string;
@@ -21,19 +22,33 @@ type Purchase = {
 };
 
 export default function AdminVerifyPage() {
-  const [secret, setSecret] = useState("");
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const withAuth = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setError("管理者としてログインしてください");
+      return null;
+    }
+    return session.access_token;
+  }, []);
 
-  const fetchPurchases = async () => {
+  const fetchPurchases = useCallback(async () => {
+    const token = await withAuth();
+    if (!token) {
+      setPurchases([]);
+      return;
+    }
     setLoading(true);
     setError("");
     setMessage("");
     const res = await fetch("/api/admin/purchases", {
       headers: {
-        "x-admin-secret": secret,
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -45,33 +60,41 @@ export default function AdminVerifyPage() {
     }
     setPurchases(data.purchases ?? []);
     setLoading(false);
-  };
+  }, [withAuth]);
 
-  const handleAction = async (purchaseId: string, userId: string, action: "approve" | "reject") => {
-    setLoading(true);
-    setError("");
-    setMessage("");
-    const res = await fetch("/api/admin/purchases", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-secret": secret,
-      },
-      body: JSON.stringify({ purchaseId, userId, action }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "処理に失敗しました");
-      setLoading(false);
-      return;
-    }
-    setMessage("処理しました");
-    await fetchPurchases();
-  };
+  const handleAction = useCallback(
+    async (purchaseId: string, userId: string, action: "approve" | "reject") => {
+      const token = await withAuth();
+      if (!token) return;
+      setLoading(true);
+      setError("");
+      setMessage("");
+      const res = await fetch("/api/admin/purchases", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ purchaseId, userId, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "処理に失敗しました");
+        setLoading(false);
+        return;
+      }
+      setMessage("処理しました");
+      await fetchPurchases();
+    },
+    [fetchPurchases, withAuth]
+  );
 
   useEffect(() => {
-    // no auto fetch until secret is entered
-  }, []);
+    const id = setTimeout(() => {
+      void fetchPurchases();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [fetchPurchases]);
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] px-4 py-12 text-[#5C4033]">
@@ -79,19 +102,12 @@ export default function AdminVerifyPage() {
         <h1 className="font-heading mb-6 text-2xl">管理者承認</h1>
 
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center">
-          <input
-            type="password"
-            placeholder="Admin Secret"
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
-            className="w-full md:w-64 rounded-lg border border-[#FFC0CB]/60 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#FFC0CB] focus:ring-2 focus:ring-[#FFC0CB]/50"
-          />
           <button
             onClick={fetchPurchases}
-            disabled={!secret || loading}
+            disabled={loading}
             className="md:w-40 w-full rounded-full bg-[#FFC0CB] px-5 py-2 text-sm font-semibold text-[#5C4033] shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "読込中..." : "承認待ちを取得"}
+            {loading ? "読込中..." : "承認待ちを更新"}
           </button>
         </div>
 
