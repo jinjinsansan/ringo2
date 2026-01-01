@@ -17,9 +17,18 @@ export default function Header() {
   const [signingOut, setSigningOut] = useState(false);
   const { sessionEmail } = useUser();
 
-  const isAdmin = sessionEmail === "goldbenchan@gmail.com";
-  const navItems = isAdmin ? [...navLinks, { label: "管理者パネル", href: "/admin" }] : navLinks;
   const isLoggedIn = Boolean(sessionEmail);
+  const isAdmin = sessionEmail === "goldbenchan@gmail.com";
+  const navItems = useMemo(() => {
+    const items = [...navLinks];
+    if (isLoggedIn) {
+      items.unshift({ label: "マイページ", href: "/my-page" });
+    }
+    if (isAdmin) {
+      items.push({ label: "管理者パネル", href: "/admin" });
+    }
+    return items;
+  }, [isLoggedIn, isAdmin]);
   const displayName = useMemo(() => {
     if (!sessionEmail) return "";
     const [name] = sessionEmail.split("@");
@@ -56,6 +65,12 @@ export default function Header() {
           <div className="flex items-center gap-4 ml-4">
             {isLoggedIn ? (
               <>
+                <Link
+                  href="/my-page"
+                  className="px-4 py-2 rounded-full border border-transparent text-[#FF8FA3] font-bold hover:bg-[#FFF5F7] transition"
+                >
+                  マイページ
+                </Link>
                 <span className="px-4 py-2 rounded-full bg-[#FFF5F7] text-[#5D4037] font-semibold border border-[#FFD1DC]">
                   {displayName}
                 </span>
@@ -116,6 +131,13 @@ export default function Header() {
           <div className="flex flex-col gap-3 mt-2">
             {isLoggedIn ? (
               <>
+                <Link
+                  href="/my-page"
+                  className="w-full py-3 rounded-full border border-transparent text-[#FF8FA3] font-bold text-center hover:bg-[#FFF5F7]"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  マイページ
+                </Link>
                 <div className="w-full py-3 rounded-full bg-[#FFF5F7] text-[#5D4037] font-semibold text-center border border-[#FFD1DC]">
                   {displayName}
                 </div>

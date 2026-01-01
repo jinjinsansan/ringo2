@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@/context/UserContext";
 
 const steps = [
   {
@@ -38,6 +40,31 @@ const faqItems = [
 
 export default function Home() {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+  const router = useRouter();
+  const { sessionEmail, loading } = useUser();
+  const isLoggedIn = Boolean(sessionEmail);
+
+  const heroCtaLabel = useMemo(() => (isLoggedIn ? "マイページに移動" : "今すぐ参加する（無料）"), [isLoggedIn]);
+  const guideCtaLabel = useMemo(() => (isLoggedIn ? "マイページを開く" : "さっそく始める"), [isLoggedIn]);
+  const footerCtaLabel = useMemo(() => (isLoggedIn ? "マイページを開く" : "今すぐ登録する"), [isLoggedIn]);
+
+  const handlePrimaryCta = useCallback(() => {
+    router.push(isLoggedIn ? "/my-page" : "/signup");
+  }, [isLoggedIn, router]);
+
+  useEffect(() => {
+    if (!loading && isLoggedIn) {
+      router.replace("/my-page");
+    }
+  }, [loading, isLoggedIn, router]);
+
+  if (isLoggedIn && !loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-[#5D4037]">
+        <p>マイページへ移動しています...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen text-[#5D4037]">
@@ -64,12 +91,13 @@ export default function Home() {
                 優しさでつながる、新しいギフト交換の形です。
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start pt-4">
-                <a
-                  href="/signup"
+                <button
+                  type="button"
+                  onClick={handlePrimaryCta}
                   className="btn-primary px-8 py-4 rounded-full text-lg font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all"
                 >
-                  今すぐ参加する（無料）
-                </a>
+                  {heroCtaLabel}
+                </button>
                 <a
                   href="#guide"
                   className="px-8 py-4 rounded-full bg-white/80 border border-white text-[#5D4037] font-bold shadow-md hover:bg-white transition-all flex items-center justify-center gap-2"
@@ -167,12 +195,13 @@ export default function Home() {
                   ))}
                 </div>
                 
-                <a
-                  href="/signup"
+                <button
+                  type="button"
+                  onClick={handlePrimaryCta}
                   className="btn-primary inline-flex items-center gap-2 px-8 py-4 rounded-full font-bold shadow-xl"
                 >
-                  さっそく始める <span className="text-lg">→</span>
-                </a>
+                  {guideCtaLabel} <span className="text-lg">→</span>
+                </button>
               </div>
               
               <div className="relative">
@@ -236,12 +265,13 @@ export default function Home() {
             <p className="text-[#5D4037]/70">
               登録は無料。あなたの優しさが、誰かの笑顔になります。
             </p>
-            <a
-              href="/signup"
+            <button
+              type="button"
+              onClick={handlePrimaryCta}
               className="btn-primary inline-flex px-10 py-5 rounded-full text-xl font-bold shadow-xl hover:scale-105 transition-transform"
             >
-              今すぐ登録する
-            </a>
+              {footerCtaLabel}
+            </button>
           </div>
         </section>
       </main>
